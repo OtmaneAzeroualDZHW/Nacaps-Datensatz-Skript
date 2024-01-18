@@ -1,0 +1,2354 @@
+********************************************************************************
+******************* NACAPS - Kohorte I + II + III, Wellen I ********************
+***************** Mikrodatenaufbereitung Datenportal in STATA ******************
+******************** Erstellung des Indikatorendatensatzes *********************
+********************************************************************************
+
+Bitte beachten Sie, dass im Skript stellenweise auf Variablen Bezug genommen wird, 
+die in den Mikrodaten nicht zur Verfügung stehen. Es wird auf frühe Versionen in 
+der Aufbereitung der Befragungsdaten Bezug genommen oder auf Variablen, die aus 
+Datenschutzgründen nicht übermittelt werden. Es dient weniger zur automatischen 
+Reproduktion der Ergebnisse, sondern eher dazu, die Datenaufbereitung nachvollziehen 
+und ggf. nachbilden zu können.
+
+Bitte beachten Sie weiterhin, dass sich aufgrund der Anonymisierung im Datenportal, 
+spezifischen Einschränkungen aufgrund eines speziellen Informed Consent und individu-
+ellen Einschränkungen der Stichprobe (z.B. bereits abgeschlossene oder abgebrochene 
+Promotionen, Registrierungsdatum o.ä.) Fallzahlen geringfügig zwischen eigenen Reko-
+dierungen mit dem Mikrodatensatz und dem Datenportal unterscheiden können!
+
+
+*Stand 18.01.2024
+*erstellt Vorlage Prom2018.1 Moritz Seifert, Änderungen Prom2020.1 Antje Wegner
+*Änderungen Prom2022.1 Sarah Widany 
+
+*Letzte Änderungen
+*v1: aufgeräumtes do-file mit allen Meta- und Systemvariablen und 
+	*allen Diff-Variablen
+	*Indikatoren: A0,3,5; B1,2,5; C2; F3; G1,4,5,6
+*v2: D2; E1; G2,3; HS3,4
+*v3: neues edt-file 5-0-0 mit Fächern und Grundgesamtheit
+*v4: alle Variablen + Indikatoren, bis auf adcd11
+*v5: adcd11 integriert, FH-Abschlüsse bei Bildungsherkunft neu zugeordnet, 
+*	 Migrationshintergrund 2. Generation für SozDem	 
+
+************************** Voreinstellungen ************************************
+version 16
+set more off
+*capture log logfile
+clear all
+
+************************** Datensatz Prom2018.1 laden **************************
+cd "P:\Nacaps\03_Datenanalyse\DP\Datensatz_Dateportal\Partnerbereich"
+dir
+use "P:\Nacaps\02_Datenprodukte\Prm18\01_Daten\04_use\Prm18W1_use_3-0-0", clear
+
+************** Append Datensatz Prom2020.1 + Prom2022.1 ************************
+
+append using ///
+"P:\Nacaps\02_Datenprodukte\Prm20\01_Daten\04_use\Prm20W1_use_1-0-0.dta" /// 
+"P:\Nacaps\01_Datenaufbereitung\Prm22\01_Daten\02_edt\Prm22W1_edt_5-0-0" ///
+, generate (dataset) force
+
+la def dataset 0 "Prom2018.1" 1 "Prom2020.1" 2 "Prom2022.1", modify
+la val dataset dataset
+	tab dataset
+
+********************************************************************************
+************************** Reduktion des Datensatzes ***************************
+********************************************************************************
+*Nur relevante Variablen behalten.  
+****************Variablen für Plausi.Prüfung
+keep adbi15_g1 adbi15_g0 adbi15 adbi26 /*Promotionsfach
+****************Zuordnungsvariablen
+*/dataset /*Systemvariable vom Matching
+*/id aid /*ID, *2020=aid
+*/preload01 apreloadpreload01 apreload01 /*Hochschule, 2020=apreloadpreload01
+*/agrundgesamtheit /*Grundgeseamtheit 2020 + 2022
+*/adbi01 adbi17 /*Status der Promovierenden, 2020/23=adbi17
+*/adbi10a_g1 /*Hochschule der Promotion nach Destatis Hochschulschlüssel
+*/adbi04a adbi04b adbi04c /*Für Zulassung / Kohorten bei Sampleeingrenzung 
+****************Differenzierungsvariablen
+*Diff0 (Undifferenziert für öff. Bereich), id siehe Zuordnungsvariablen
+*Diff1 (Geschlecht) 
+*/adem01 adem11 /*
+*Diff2 (Destatis Fächerzuordnung)
+*/adbi15_g2 /*
+*Diff3 (Migrationshintergrund - Geburtsland/1.Generation) 
+*/adem03 /*
+*Diff4 (Strukturiertes Doktorandenprogramm) + C2 
+*/ adcd06a adcd04 adcd53 /*
+*Diff5 (Elterliche Bildungsherkunft)
+*/apar10a apar10b /*
+*Diff6 (Elternschaft) / G4
+*/alcd06 /*
+*Diff7 (Kohorte)
+nutzt dataset, siehe oben Systemvariable
+*Diff8 (Beschäftigung Promovierender)
+*/aemp01a aemp112a aemp197 /* 2020=aemp112a *2022=aemp197
+****************A0 - Soziodemografie-Master
+*/adem02 adem02_g1 /* Alter, *2020 + 2022 =adem02_g1
+*/apar01a apar01b /* Geburtsland Eltern Deutschland
+****************Arbeits- und Beschäftigungsbedingungen
+*A1
+*/ adcd04 adcd07a adcd07b /*
+*A2 Befristung
+*/aemp04 aemp20 aemp110 afin11a aemp36 /*
+*A3 Stellenumfang, überarbeitet in 2023
+*/aemp09 aemp10 aemp11 /*2018
+*/aemp75_g1 aemp106_g1 aemp76_g1 aemp77_g1 aemp106_g1 /*2020 
+*/aemp75 aemp106 aemp76 aemp77 aemp106 /*2022 
+*/aemp78 /*2020/2022
+*A4 Zeit für die Promotion
+*/adcd22 adcd22_g1 /*
+*A5 Vertragslaufzeit, neu in 2023
+*/aemp06 aemp63_g1 aemp63 /*
+****************Betreuungssituation
+*B1 Betreuungsvereinbarung
+*/adsv02 /*2018*/ adsv19 /*2020/2022
+*B2 Inhalte der Betreuungsvereinbarung
+*/adsv03a adsv03b adsv03c adsv03d adsv03e adsv03f adsv03g adsv03h /// 
+adsv03i adsv03j adsv03k adsv03l /*
+*B3 Anzahl der Betreuer*innen
+*/ adsv04 adsv04_g1 adsv18 /*
+*B4 Austauschhäufigkeit mit der Hauptbetreuungsperson
+*/adsv10 /* 
+*B5 Zufriedenheit mit der Betreuung
+*/adsv12a adsv12b adsv12c adsv20a adsv20b adsv20c /*
+*B6 Ünterstütung 
+*/adcd17a adcd17b adcd17c adcd17d adcd17e adcd17f adcd17g adcd17h adcd17i ///
+adcd17j adcd17k adcd17l ///
+adcd33a adcd33b adcd33c adcd33d adcd33e adcd33f adcd33g adcd33h adcd33i ///
+adcd33j adcd33k adcd33l /* 2020
+*B7 Strukturierung: Betreuungsstabilität und -intensität
+*/adsv01a adsv01b adsv01c adsv01d adsv01e adsv01f /*
+****************Art und Struktur der Promotion
+*C1 Kumulative Dissertation
+*/adcd16a adcd35a /*
+*C2 Mitgliedschaft Doktorandenprogramm, bei Diff4 oben
+*C3 Finanzierung im Rahmen des strukturierten Doktorandenprogramms
+*/adcd07a adcd07b adcd07c /*
+*C4 Externe Kooperation
+*/adcd13a adcd13b adcd13c adcd13e adcd32a adcd32b adcd32c adcd32f adcd32e /*
+*C5 Externe Kooperation mit: Fachhochschule/HAW
+*/adbi13 adbi18 /*
+*C6 Externe Kooperation mit: Hochschule im Ausland
+*/adbi11 /*
+****************Promotionsmotive und Karriereintentionen
+*D1 Motivation zur Arbeit an der Promotion
+*/adtc05a adtc05b adtc05c adtc05d adtc05e adtc05f adtc05g adtc05h ///
+ adtc05i adtc05j adtc05k /*
+*D2 Erwägung des Promotionsabbruchs
+*/adid04 /*
+*D3 Gründe zur Erwägung des Promotionsabbruchs
+*/adid05a adid05b adid05c adid05d adid05e adid05f adid05g adid05h ///
+adid05i adid05j adid05k /* 
+****************Karrierewege und Perspektiven nach der Promotion
+*E1 Sektorpräferenz
+*/acrg07a /*2018
+*/aemp109 acrg19a /*2020
+*E2 Karriereintention Professur
+*/acrg08 acrg06 acrg04 /*
+*E3 Antizipierte Schwierigkeiten bei Stellensuche nach Promotion im eigenen Fach
+*/acrg11a acrg17a acrg11b acrg17b /*
+*E4 Persönlich antizipierte Schwierigkeiten bei Stellensuche nach Promotion
+*/acrg12a acrg18a acrg12b acrg18b /*
+****************Mobilität
+*F1 Internationale Mobilität
+*/aabr01 aabr08 /*
+*F2 Gastländer
+*/aabr03_g1 aabr03_g2 aabr03_g3 aabr03_g4 aabr03_g5 aabr03_g6 aabr03_g7 ///
+aabr03_g8 aabr03_g9 aabr03_g10 aabr03_g11 aabr03_g12 aabr03_g13 aabr03_g14 ///
+aabr07ab_g1 aabr07bb_g1 aabr07cb_g1 aabr07db_g1 /*
+*F3 Hinderungsründe Ausland 
+*/aabr05a aabr05b aabr05c aabr05d aabr05e aabr05f aabr05g aabr05h /*
+*/aabr05i aabr05j /*
+*F4 Mobilität nach der Promotion
+*/aabr06a aabr06b aabr06c aabr06d aabr06e aabr06f aabr06g aabr06h /*
+*F5 Mobilität beim Übergang in die Promotion
+*/aedb04b_g1 adbi10a_g1 /*
+****************Private Lebenssituation / Persönlicher Hintergrund
+*G1 Finanzierung der Promotion
+*/afin01a afin01b afin01c afin01d afin01e afin01f afin01g afin01h afin01i /*2018
+*/afin01j afin01k afin01l /*2018
+*/afin11a afin11b afin11c afin11d afin11e afin11f afin11g afin11h afin11i /*2020
+*/afin11j /*2020
+*G2 G2 Finanzierung der Promotion (Betrag) 
+*/afin04a afin04b afin04c afin04d afin04e afin04f afin04g afin04h afin04i /*2018 
+*/afin04j afin04k afin01a afin01b /*2018
+*/afin12a_g1 afin12b_g1 afin12c_g1 afin12d_g1 afin12e_g1 afin12f_g1 /*2020
+*/afin12g_g1 afin12h_g1 afin12i_g1 afin11a afin11b afin12a /*2020
+*/afin12l_g1 afin12k_g1 afin12b_g1 afin12c_g1 afin12d_g1 afin12e_g1 afin12f_g1 /*2022
+*/afin12g_g1 afin12h_g1 afin12i_g1 afin12j_g1 /*2022
+*G3 Suffizienz und Sicherheit der Finanzierung
+*/afin05a afin05b /*
+*G4 Elternschaft, bei Diff6 oben
+*G5 Zufriedenheit und Vereinbarkeit
+*/apsy01 alcd12 /*
+*G6 Gesundheit
+*/ahea01 /*insg
+*/aict03 ahea02 ahea03 ahea04 /*2018
+*/ahea02_g ahea03_g ahea04_g /*2020
+****************Hochschulbezogene Indikatoren
+*HS1 Grund der Hochschulwahl
+*/adtc02a adtc02b adtc02c adtc02d adtc02e adtc02f adtc02g /*2018
+*/adtc13a adtc13b adtc13c adtc13d adtc13e adtc13f adtc13g adtc13h adtc13i /*20
+*HS2 Sichtbarkeit der Kurse
+*/adcd08a adcd08b adcd08c adcd08d adcd08e adcd08f adcd08g adcd08h adcd08i ///
+adcd08j adcd08k adcd08l adcd08m adcd08n adcd08p adcd08q /*
+*HS3 Teilnahme an Kursen nach Art 
+*/adcd09a adcd09b adcd09c adcd09d adcd09e adcd09f adcd09g adcd09h /*
+*/adcd09i adcd09j adcd09k adcd09l adcd09m adcd09n adcd09p /*
+*HS4 Teilnahmeintensität an Kursen
+*/adcd10 /*2018
+*/adcd10a adcd10b /*2020 
+*HS5 Verpflichtung der Kursteilnahme
+*/adcd11 adcd11_g1 adcd31 /*
+*HS6 Zufriedenheit mit Kursen
+*/adcd12 adsv20b /*
+*HS7 Regeln guter wissenschaftlicher Praxis I (Kenntnis)
+*/adcd18 /*
+*HS8 Regeln guter wissenschaftlicher Praxis II (HS-Unterstützung verfügbar)
+*/adcd19 /*
+*HS9 Regeln guter wissenschaftlicher Praxis III (HS-Unterstützung zufrieden)
+*/adcd20 /*
+*HS10 Promotion an Hochschule des Erwerbs der Promotionsberechtigung
+*/aedb04b_g1 adbi10a_g1 /*
+*HS11 Beschäftigung an der Hochschule der Promotion
+*/aemp01a aemp112a
+  
+********************************************************************************
+******************** Sample Datenportal definieren *****************************
+********************************************************************************
+****************missing values codieren
+	misstable sum 
+mvdecode _all, mv(-966/-999 -9990/-9996)
+****************ZOFAR-ID zusammenführen in alte id-Variable
+replace id = aid if dataset != 0
+duplicates report id
+****************Hochschulpreload zusammenfassen
+	tab preload01 dataset, mis
+	tab apreloadpreload01 dataset, mis
+	tab apreload01 dataset, mis
+replace preload01 = apreloadpreload01 if dataset == 1
+replace preload01 = apreload01 if dataset == 2
+****************Hochschulen neu labeln
+la def preload01_lb ///
+1 "Heinrich-Heine-Universität Düsseldorf" 						///
+2 "Christian-Albrechts-Universität zu Kiel" 						///
+3 "Universität Potsdam" 								///
+4 "Universität des Saarlandes" 								///
+5 "RWTH Aachen University" 								///
+6 "Otto-Friedrich-Universität Bamberg" 							///
+7 "Freie Universität Berlin" 								///
+8 "Hertie School of Governance " 							///
+9 "Humboldt-Universität zu Berlin" 							///
+10 "Universität Bielefeld" 								///
+11 "Ruhr-Universität Bochum" 								///
+12 "Technische Universität Clausthal" 							///
+13 "Technische Universität Dortmund" 							///
+14 "Hochschule für Bildende Künste Dresden" 						///
+15 "Universität Duisburg-Essen" 							///
+16 "Katholische Universität Eichstätt- Ingolstadt" 					///
+17 "Friedrich-Alexander-Universität Erlangen-Nürnberg" 					///
+18 "Europa-Universität Flensburg" 							///
+19 "Goethe-Universität Frankfurt am Main" 						///
+20 "Pädagogische Hochschule Freiburg" 							///
+21 "Zeppelin Universität" 								///
+22 "Hochschule Fulda" 									///
+23 "Hochschule Geisenheim University" 							///
+24 "FernUniversität in Hagen" 								///
+25 "Martin-Luther-Universität Halle-Wittenberg" 					///
+26 "Kühne Logistics University" 							///
+27 "Bucerius Law School - Hochschule für Rechtswissenschaft" 				///
+28 "Helmut-Schmidt-Universität/Universität der Bundeswehr Hamburg" 			///
+29 "Technische Universität Hamburg-Harburg"						///
+30 "Universität Hamburg" 								///
+31 "Stiftung Tierärztliche Hochschule Hannover" 					///
+32 "Hochschule für Musik, Theater und Medien Hannover" 					///
+33 "Ruprecht-Karls-Universität Heidelberg" 						///
+34 "Universität Hildesheim" 								///
+35 "Friedrich-Schiller-Universität Jena" 						///
+36 "Technische Universität Kaiserslautern" 						///
+37 "Universität Kassel" 								///
+38 "Universität Leipzig" 								///
+39 "Musikhochschule Lübeck" 								///
+40 "Pädagogische Hochschule Ludwigsburg" 						///
+41 "Otto-von-Guericke Universität Magdeburg" 						///
+42 "Johannes Gutenberg- Universität Mainz" 						///
+43 "Universität Mannheim" 								///
+44 "Technische Universität München" 							///
+45 "Akademie der Bildenden Künste München" 						///
+46 "Universität Osnabrück" 								///
+47 "Universität Passau" 								///
+48 "Pädagogische Hochschle Schwäbisch Gmünd" 						///
+49 "Staatliche Akademie der bildenden Künste Stuttgart" 				///
+50 "Universität Trier" 									///
+51 "Eberhard Karls Universität Tübingen" 						///
+52 "Universität Ulm" 									///
+53 "WHU- Otto Beisheim School of Management" 						///
+54 "Universität Vechta" 								///
+55 "Hochschule für Musik FRANZ LISZT Weimar" 						///
+56 "Pädagogische Hochschule Weingarten" 						///
+57 "Bergische Universität Wuppertal" 							///
+58 "Studienstiftung des Deutschen Volkes" 						///
+59 "Technische Universität Dresden" 							///
+60 "Pädagogische Hochschule Heidelberg" 						///
+61 "Universität Würzburg" 								///
+62 "Universität Bayreuth" 								///
+63 "Universität Regensburg" 								///
+64 "European School of Management and Technology Berlin" 				///
+65 "Europa-Universität Viadrina" 							///
+66 "Brandenburgische Technische Universität Cottbus-Senftenberg" 			///
+67 "???"										///
+68 "Universität Rostock" 								///
+69 "Gottfried Wilhelm Leibniz Universität Hannover" 					///
+70 "Technische Universität Braunschweig"						///
+71 "Carl von Ossietzky Universität Oldenburg" 						///
+72 "Universität zu Köln" 								///
+73 "Philosophisch Theologische Hochschule Vallendar (PTHV)" 				///
+74 "Universität Koblenz-Landau" 							///
+75 "Deutsche Universität für Verwaltungswissenschaften Speyer" 				///
+76 "Universität zu Lübeck" 								///
+77 "Charité - Universitätsmedizin Berlin" 						///
+78 "Filmuniversität Babelbsberg" 							///
+79 "Hochschule RheinMain" 								///
+80 "Medizinische Hochschule Hannover" 							///
+81 "Rheinische Friedrich-Wilhelms-Universität Bonn" 					///
+82 "University of Paderborn" 								///
+83 "Anhalt University of Applied Sciences" 						///
+84 "Harz university of applied sciences" 						///
+85 "Hochschule Magdeburg-Stendal" 							///
+86 "Hochschule Merseburg" 								///
+87 "Technische Universität Berlin", replace
+la val preload01 preload01_lb
+	tab preload01 dataset
+	tab preload01 dataset, nol 
+
+********************************************************************************
+****************************Kohorten bereinigen*********************************
+**Promovierende aus HS mit Vollerhebung raus
+**Prom2018.1 über Kohortenzugehörigkeit
+**Unterteilung in Kohorten
+**Eingrenzung Kohorten: Datum der Zulassung
+	tab adbi04a dataset, mis // Monat
+	tab adbi04b dataset, mis // Jahr
+	tab adbi04c dataset, mis // noch keine Zulassung
+cap drop zulassung
+gen zulassung=ym(adbi04b,adbi04a)
+format zulassung %tm
+	tab zulassung dataset, mis
+*Fälle aus ~alten~ Kohorten "Unbekannt" und "<2016" löschen
+	tab adbi04c dataset
+	tab adbi04c dataset, nol
+drop if adbi04c==1 & dataset==0 
+drop if zulassung<=tm(2016m12) & dataset==0 & adbi04c!=1 /*Jahrgang <2016 Prom18*/
+	tab dataset
+*Prom2020.1 + Prom2022.1 über Systemvariable zu Grundgesamtheit
+	tab agrundgesamtheit dataset, mis
+	tab agrundgesamtheit dataset, mis nol
+drop if agrundgesamtheit==0 
+	tab dataset
+****************Promovierte und Promotionsabbrecher aus dem Sample entfernen
+	tab adbi01 dataset  // Prom2018.1
+	tab adbi17 dataset, nol // Prom2020.1 & Prom2022.1
+drop if adbi01==2|adbi01==4 & dataset==0
+drop if adbi17==2|adbi17==4 & dataset==1
+drop if adbi17==2|adbi17==4 & dataset==2
+	tab dataset, nol
+****************Studienstiftung des deutschen Volkes aus dem Sample entfernen
+	tab preload01 dataset
+drop if preload01==58
+	tab dataset
+	
+	
+********************************************************************************
+****************VARIABLEN FÜR EXTRAKT*******************************************		
+* Studienfach
+*Für Join der hochschuleigenen Zuordnung
+	tab adbi15_g0 dataset
+	tab adbi15_g0, nol
+cap drop Studienfach
+gen Studienfach = adbi15_g0
+lab var Studienfach "Studienfach"
+lab val Studienfach adbi15_g0lb
+	tab Studienfach dataset, mis
+
+********************************************************************************
+****************DIFFERENZIERUNGSVARIABLEN***************************************
+
+****************Diff0 (Undifferenziert für öff. Bereich), id siehe Zuordnungsvariablen
+cap drop Diff0 
+gen Diff0=. 
+	replace Diff0=1 if id!=.
+lab var Diff0 "Undifferenzierte Verteilung"
+lab def Diff0_lb 0 "Undifferenzierte Verteilung"
+lab val Diff0 Diff0_lb
+	tab Diff0 dataset
+
+****************Diff1 (Geschlecht) 
+	tab adem01 dataset, mis
+	tab adem11 dataset
+cap drop Diff1
+gen Diff1 = .
+	replace Diff1 = adem01 if dataset <= 1 // 2018 + 2020
+	replace Diff1 = adem11 if dataset == 2 // 2022
+*Divers/keine Angabe hat mangelende Mindestzellbesetzung --> missings	
+recode Diff1 (3/4 = .)
+lab var Diff1 "Diff1:Geschlecht"
+lab def Diff1_lb 	1 "Weiblich" ///
+					2 "Männlich"
+lab val Diff1 Diff1_lb
+	tab Diff1 dataset, mis
+	tab adem01 Diff1
+	tab adem11 Diff1
+
+****************Diff2a (Destatis Fächerzuordnung)
+	tab adbi15_g2 dataset, mis
+*9 = außerhalb der Studienbereichsgliederung nur in 2022 mit 8 Fällen -> missing
+mvdecode adbi15_g2, mv(9)
+cap drop Diff2a
+gen Diff2a = adbi15_g2
+lab var Diff2a "Diff2:Destatis-Fächerklassifikation"
+lab def Diff2a_lb 	1 "Geisteswissenschaften" ///
+					2 "Sport" ///
+					3 "Rechts-, Wirtschafts- und Sozialwissenschaften" ///
+					4 "Mathematik, Naturwissenschaften" ///
+					5 "Humanmedizin, Gesundheitswissenschaften" ///
+					6 "Agrar-, Forst- und Ernährungswissenschaften" ///
+					7 "Ingenieurwissenschaften" ///
+					8 "Kunst, Kunstwissenschaften"
+lab val Diff2a Diff2a_lb
+	tab Diff2a dataset, mis
+	
+****************Diff3 (Migrationshintergrund - Geburtsland/1.Generation) 
+	tab adem03 dataset, mis
+cap drop Diff3a
+gen Diff3a = adem03
+lab var Diff3a "Diff3:Migrationshintergrund:1. Generation"
+lab def Diff3a_lb 	1 "Ohne Migrationshintergrund 1. Generation" ///
+					2 "Mit Migrationshintergrund 1. Generation"
+lab val Diff3a Diff3a_lb
+	tab Diff3a dataset
+	tab Diff3a dataset, mis
+
+****************Diff4 (Strukturiertes Doktorandenprogramm) + C2 
+	tab adcd04 dataset, mis // 2018/2022
+	tab adcd53 dataset, mis // 2022
+*	C2 Mitgliedschaft in strukturiertem Promotionsprogramm
+cap drop C2
+gen C2 = .
+	replace C2 = adcd04 if dataset <= 1 // 2018/2020
+	replace C2 = adcd53 if dataset == 2 // 2022
+lab var C2 "C2:Mitgliedschaft in einem strukturierten Doktorandenprogramm"
+lab def C2_lb 	1 "Ordentliches Mitglied" /// 
+				2 "Assoziiertes Mitglied" ///
+				3 "Kein Mitglied", replace
+lab val C2 C2_lb
+	tab C2 dataset, mis
+*	Diff4
+	tab adcd06a dataset, mis 
+cap drop C2a
+recode C2 (1/2=1) (3=2), gen(C2a) // Kombi assoz + ordentl. Mitglieder
+	tab C2 C2a
+
+cap drop Diff4
+gen Diff4=.
+	replace Diff4=0 if C2a==2 //kein SDP
+	replace Diff4=1 if C2a==1 
+	replace Diff4=2 if C2a==1 & adcd06a==1 // nur verbindl. Kursprogramm
+lab var Diff4 "Diff4:Struktur. Promotionsprogramm"
+la def Diff4_lb 	0 "Keine Mitgliedschaft" ///
+					1 "Mitglied ohne verbindl. Kurse" ///
+					2 "Mitglied mit verbindl. Kursen"
+lab val Diff4 Diff4_lb
+	tab Diff4 C2
+	tab Diff4 C2a
+	tab dataset Diff4, mis
+
+****************Diff5 (Elterliche Bildungsherkunft)
+	tab apar10a  dataset, mis 
+	tab apar10b dataset, mis 
+	tab apar10a apar10b if dataset == 2, mis
+cap drop Diff5
+gen Diff5 = .
+	replace Diff5 = 1 if apar10a == 1 | apar10b == 1 
+	replace Diff5 = 2 if Diff5 != 1 & apar10a <= 3 | Diff5 != 1 & apar10b <= 3
+	replace Diff5 = 3 if Diff5 > 2 & apar10a >= 4 | Diff5 > 2 & apar10b >= 4
+	replace Diff5 = . if apar10a == . & apar10b == .  
+lab var Diff5 "Diff5:Elterliche Bildungsherkunft"
+lab def Diff5_lb 	1 "Promotion" ///
+					2 "Hochschulabschluss" ///
+					3 "Weder Promotion noch Hochschulabschluss", replace
+lab val Diff5 Diff5_lb
+	tab Diff5 dataset, mis col
+	
+****************Diff6 (Elternschaft) / G4
+	tab alcd06 dataset, mis
+*	G4
+cap drop G4
+gen G4 = alcd06
+lab var G4 "G4:Elternschaft"
+	recode G4 (2=0)
+lab def G4_lb 	0 "Kein Kind" ///
+				1 "Mindestens ein Kind" , replace
+lab val G4 G4_lb
+	tab G4 dataset
+*	Diff6
+cap drop Diff6
+gen Diff6 = G4
+lab var Diff6 "Diff6:Elternschaft"
+lab val Diff6 G4_lb
+	tab Diff6 dataset, mis
+	tab Diff6 G4
+
+****************Diff7 (Kohorte)
+cap drop Diff7
+gen Diff7 = dataset
+la var Diff7 "Diff7:Kohorte"
+la def Diff7_lb 	0 "2017/18" ///
+					1 "2019/20" ///
+					2 "2021/22", modify 
+la val Diff7 Diff7_lb
+	tab Diff7 dataset, mis
+
+****************Diff8 (Beschäftigung Promovierender)
+	tab aemp01a dataset, mis 	// 2018
+	tab aemp112a dataset, mis	// 2020
+	tab aemp197 dataset, mis 	// 2022
+cap drop Diff8
+gen Diff8 = .
+	replace Diff8 = aemp01a if dataset == 0
+	replace Diff8 = aemp112a if dataset == 1
+	replace Diff8 = 1 if aemp197 == 1 & dataset == 2
+	replace Diff8 = 2 if aemp197 == 2 & dataset == 2
+	replace Diff8 = 2 if aemp197 == 3 & dataset == 2
+	*replace Diff8 = 3 if missing(aemp01a) & dataset == 0 / kw
+	*replace Diff8 = 3 if missing(aemp112a) & dataset == 1 / kw
+	*replace Diff8 = 3 if missing(aemp197) & dataset == 2 / kw
+lab var Diff8 "Diff8:Beschäftigung Promovierender"
+la def Diff8_1b 	1 "an der HS der Promotion" ///
+					2 "an anderer HS/Forschungseinrichtung", replace
+la val Diff8 Diff8_1b
+	tab Diff8 dataset, mis 
+
+********************************THEMENBEREICH A*********************************
+**********************Arbeits- und Beschäftigungsbedingungen********************
+****************A0 - Soziodemografie-Master
+*	Alter
+	tab adem02 datase, mis 		// 2018 + 2022
+	tab adem02_g1 dataset, mis	// 2020
+cap drop alter
+gen alter = . 
+	replace alter = 2019 - adem02 if dataset==0 	// 2018
+	replace alter = 2021 - adem02_g1 if dataset==1	// 2020
+	replace alter = 2023 - adem02_g1 if dataset==2 	// 2022
+lab var alter "Soz1:Alter in Jahren zum Befragungszeitpunkt"
+	recode alter (0/26=1) (27/30=2) (31/34=3) (35/100=4) (101/max=.)
+la def alter_lb 1 "<=26" 2 "27-30" 3 "31-34" 4 ">=35"
+la val alter alter_lb
+	tab alter dataset
+	
+*	Migrationshintergrund 2. Generation
+	tab apar01a dataset, mis
+	tab apar01b dataset, mis
+	tab apar01a apar01b, mis
+cap drop migh2gen
+gen migh2gen = .
+	replace migh2gen = 1 if apar01a == 1 & apar01b == 1 
+	replace migh2gen = 2 if	apar01a == 2 | apar01b == 2 
+	replace migh2gen = . if apar01a >3 & apar01b >3
+lab var migh2gen "Soz2:Migrationshintergrund:2. Generation"
+lab def migh2gen_lb 1 "Ohne Migrationshintergrund 2. Generation" ///
+					2 "Mit Migrationshintergrund 2. Generation"
+lab val migh2gen migh2gen_lb
+tab migh2gen, mis 
+
+********************************THEMENBEREICH A*********************************
+**********************Arbeits- und Beschäftigungsbedingungen********************
+
+****************A1 Promotionsform (ab 2020/21) 
+*rekodierung am Ende do-file nach G1 weil auf gemergte variablen zur Finanzierung 
+*aufgebaut werden muss
+
+****************A2 Befristung
+	tab aemp04 dataset, nol 	// 2018, 1/2 codiert
+	tab aemp04 dataset 		 	// 2018, 1/2 codiert
+	tab aemp20 dataset			// 2018
+	tab aemp36 dataset			// 2018
+	tab aemp110 dataset, nol	// 2020 + 2022, 1/2 codiert
+	tab afin11a dataset, nol	// 2020 + 2022
+	tab afin11a dataset, 		// 2020 + 2022
+cap drop A2
+gen A2 = . 
+	replace A2 = aemp04 if dataset==0
+	replace A2 = aemp110 if afin11a==1 & dataset>=1
+recode A2 (2 = 0)
+lab var A2 "A2:Befristung:Hochschule"
+lab def A2_lb 0 "Unbefristet" 1 "Befristet", replace 
+lab val A2 A2_lb
+	tab A2 dataset, col
+
+****************A3 Stellenumfang
+*überarbeitet in 2023, Umfang statt Vollzeit/Teilzeit
+*ausschließlich an Hochschulen/AUF Beschäftigte
+*Fokusvariable für Anteil 100% Stellen
+
+*Stellenanteile
+	tab aemp09 dataset //2018,Vollzeit/Teilzeit
+	tab aemp10 dataset //2018, %Anteilt Teilzeit
+	tab aemp11 dataset //2018, Stunden Teilzeit
+	tab aemp75_g1 dataset //2020, %Anteil Vollzeit
+	tab aemp76_g1 dataset //2020, %Anteil Teilzeit
+	tab aemp77_g1 dataset //2020, Stunden Teilzeit
+	tab aemp106_g1 dataset //2020, Stunden Vollzeit
+	tab aemp75 dataset //2022, %Anteil Vollzeit
+	tab aemp76 dataset //2022, %Anteil Teilzeit
+	tab aemp77 dataset //2022, Stunden Teilzeit
+	tab aemp106 dataset //2022, Stunden Vollzeit
+	tab aemp78 dataset //2020/2022, Vollzeit/Teilzeit
+
+*	A3_FmFokuszahl metrisch
+/*prozentuale Angaben vor Stundenangaben: bei Fällen mit Angaben auf beiden
+Variablen Berechnung über Stunden wenn %-Angaben fehlen, 
+40 h als Vollzeit Grundlage*/
+*VZ aus Prom18 werden 100% gesetzt
+*VZ aus Prom20/22 ohne Angaben bei % oder Stunden werden 100% gesetzt
+
+cap drop A3_Fm
+gen A3_Fm = . 
+*2018
+	replace A3_Fm = aemp10 if dataset==0 // 2018 TZ
+	replace A3_Fm = (aemp11/40)*100 if aemp09 == 3 & missing(aemp10) /// 
+					& dataset == 0 // 2018 TZ
+	replace A3_Fm = 100 if aemp09 == 1 & dataset == 0 // 2018 VZ
+*2020	
+	replace A3_Fm = aemp75_g1 if dataset == 1 & aemp78 == 1 // 2020 VZ 
+	replace A3_Fm = (aemp106_g1/40)*100 if aemp78 == 1 &  /// 
+					missing(aemp75_g1)  & dataset == 1 // 2020 VZ
+	replace A3_Fm = 100 if dataset == 1 & aemp78 == 1 ///
+					& missing(aemp75_g1) & missing(aemp106_g1)  // 2020 VZ
+	replace A3_Fm = aemp76_g1 if dataset == 1 & aemp78 == 2  // 2020 TZ 
+	replace A3_Fm = (aemp77_g1/40)*100 if dataset == 1 & aemp78 == 2  /// 
+					& missing(aemp76_g1) // 2020 TZ
+*2022					
+	replace A3_Fm = aemp75 if dataset == 2 & aemp78 == 1 // 2022 VZ 
+	replace A3_Fm = (aemp106/40)*100 if aemp78 == 1 &  /// 
+					missing(aemp75) & dataset == 2 // 2022 VZ
+	replace A3_Fm = 100 if dataset == 2 & aemp78 == 1 ///
+					& missing(aemp75) & missing(aemp106)  // 2022 VZ
+	replace A3_Fm = aemp76 if dataset == 2 & aemp78 == 2  // 2022 TZ 
+	replace A3_Fm = (aemp77/40)*100 if dataset == 2 & aemp78 == 2  /// 
+					& missing(aemp76) // 2022 TZ				
+	recode A3_Fm (100.1/max = 100) // Ausreißer 
+lab var A3_Fm "Fokus A3:Anteil Stellen mit Umfang >= 90%"
+	tab A3_Fm dataset, mis
+*	A3 Stellenumfang
+recode A3_Fm 	(0/24.4 = 1) 		///
+				(24.5/50.4 = 2) 	///
+				(50.5/65.4 = 3) 	///
+				(65.5/75.4 = 4) 	///
+				(75.5/max = 5), gen(A3)
+lab var A3 "A3:Stellenumfang"
+lab def A3_lb 1 "<25%" 2 "25-50%" 3 "51-65%" 4 "66-75%" 5 "76-100%", replace
+lab val A3 A3_lb
+	tab A3 dataset, col mis
+
+****************A4 Zeit für die Promotion
+	tab adcd22 dataset, mis 	// 2018 + 2020
+	tab adcd22_g1 dataset, mis 	//2020 + 2022
+cap drop A4
+gen A4 = .
+	replace A4 = adcd22 if dataset == 0
+	replace A4 = adcd22_g1 if dataset >= 1
+	replace A4 = . if A4>100 // unplausible Angaben
+recode A4 (0/9=1) (10/19=2) (20/29=3) (30/39=4) (40/49=5) (50/100=6)
+
+la var A4 "A4:Wöchentliche Zeit für die Arbeit an der Promotion (in Stunden)"
+la def A4_lb	1 "0-9 Std." 	///
+				2 "10-19 Std." 	/// 
+				3 "20-29 Std." 	///
+				4 "30-39 Std." 	///
+				5 "40-49 Std." 	///
+				6 ">50 Std.", replace
+la val A4 A4_lb	
+	tab A4 dataset, nof col
+	
+****************A5 Vertragslaufzeit
+*neu ab 2023
+	tab aemp06 dataset //2018
+	tab aemp63_g1 dataset //2020
+	tab aemp63 dataset //2022
+*	A5_Fm Vertragslaufzeit metrisch	
+cap drop A5_Fm 
+gen A5_Fm = .
+	replace A5_Fm = aemp06 if dataset == 0 //2018
+	replace A5_Fm = aemp63_g1 if dataset == 1 //2020
+	replace A5_Fm = aemp63 if dataset == 2 //2022
+	replace A5_Fm = . if A5_Fm>72 // unplausible Angaben
+lab var A5_Fm "Fokus A5:Durchschnittliche Laufzeit aller Verträge"
+	tab A5_Fm dataset, mis	
+*	A5 Vertragslaufzeit Umfang 
+recode A5_Fm 	(0/11.4 = 1) 				///
+				(11.5/23.4 = 2) 			/// 
+				(23.5/36.4 = 3) 			/// 
+				(36.5/max = 4), gen(A5) 	 		
+lab var A5 "A5:Vertragslaufzeit"
+lab def A5_1b 			///
+	1 "0-11 Monate" 	///
+	2 "12-23 Monate"	///
+	3 "24-36 Monate"	///
+	4 "37-72 Monate",  replace
+lab val A5 A5_1b 	
+	tab A5 dataset, col mis
+
+********************************THEMENBEREICH B*********************************
+******************************Betreuungssituation*******************************
+
+****************B1 Betreuungsvereinbarung
+	tab adsv02 dataset, mis //2018	 
+	tab adsv19 dataset, mis //2020/2022
+*ab 2020 Kategorien 1 + 3 zusammenführen
+
+cap drop B1
+gen B1 = .
+	replace B1 = 1 if adsv02==1 & dataset==0	//2018
+	replace B1 = 0 if adsv02==2 & dataset==0	//2018
+	replace B1 = 1 if inlist(adsv19, 1, 3) & dataset==1 //2020
+	replace B1 = 0 if adsv19==2 & dataset==1 //2020
+	replace B1 = 1 if inlist(adsv19, 1, 3) & dataset==2 //2022
+	replace B1 = 0 if adsv19==2 & dataset==2 //2022
+lab var B1 "B1:Betreuungsvereinbarung"
+lab def B1_lb 0 "Keine Betreuungsvereinbarung" 1 "Betreuungsvereinbarung", replace
+lab val B1 B1_lb
+	tab B1 dataset, mis
+
+****************B2 Inhalte der Betreuungsvereinbarung
+	tab1 adsv03* if dataset==0, mis
+	tab1 adsv03* if dataset==1, mis
+	tab1 adsv03* if dataset==2, mis
+*	B2a Betreuungsvereinbarung: Arbeitstitel
+	tab adsv03a dataset
+cap drop B2a
+gen B2a = adsv03a
+lab var B2a "B2:Inhalt der Betreuungsvereinbarung:Arbeitstitel"
+*	B2b Betreuungsvereinbarung: Betreuer(innen)
+	tab adsv03b dataset
+cap drop B2b
+gen B2b = adsv03b
+lab var B2b "B2:Inhalt der Betreuungsvereinbarung:Betreuer(innen)"
+*	B2c Betreuungsvereinbarung: Zeitplan Dissertationsschrift
+	tab adsv03c dataset
+cap drop B2c
+gen B2c = adsv03c
+lab var B2c "B2:Inhalt der Betreuungsvereinbarung:Zeitplan der Erstellung der Dissertationsschrift"
+*	B2d Betreuungsvereinbarung: Termin für die Abgabe
+	tab adsv03d dataset
+cap drop B2d
+gen B2d = adsv03d
+lab var B2d "B2:Inhalt der Betreuungsvereinbarung:Termin für die Abgabe"
+*	B2e Betreuungsvereinbarung: Regelmäßige Berichtspflichten zum Promotionsstand
+	tab adsv03e dataset
+cap drop B2e
+gen B2e = adsv03e
+lab var B2e "B2:Inhalt der Betreuungsvereinbarung:Regelmäßige Berichtspflichten zum Promotionsstand"
+*	B2f Betreuungsvereinbarung: Zeitliche Ressourcen/Freiräume zum Promovieren
+	tab adsv03f dataset
+cap drop B2f
+gen B2f = adsv03f
+lab var B2f "B2:Inhalt der Betreuungsvereinbarung:Zeitliche Ressourcen/Freiräume zum Promovieren"
+*	B2g Betreuungsvereinbarung: Publikation von Zwischenergebnissen
+	tab adsv03g dataset
+cap drop B2g
+gen B2g = adsv03g
+lab var B2g "B2:Inhalt der Betreuungsvereinbarung:Publikation von Zwischenergebnissen"
+*	B2h Betreuungsvereinbarung: Regeln guter wissenschaftlicher Praxis
+	tab adsv03h dataset
+cap drop B2h
+gen B2h = adsv03h
+lab var B2h "B2:Inhalt der Betreuungsvereinbarung:Regeln guter wissenschaftlicher Praxis"
+*	B2i Betreuungsvereinbarung: Verfahren in Konfliktfällen
+	tab adsv03i dataset
+cap drop B2i
+gen B2i = adsv03i
+lab var B2i "B2:Inhalt der Betreuungsvereinbarung:Verfahren in Konfliktfällen"
+*	B2j Betreuungsvereinbarung: Ressourcen, die zur Verfügung gestellt werden
+	tab adsv03j dataset
+cap drop B2j
+gen B2j = adsv03j
+lab var B2j "B2:Inhalt der Betreuungsvereinbarung:Ressourcen, die zur Verfügung gestellt werden"
+*	B2k Betreuungsvereinbarung: Finanzierung von Publikationen
+	tab adsv03k dataset
+cap drop B2k
+gen B2k = adsv03k
+lab var B2k "B2:Inhalt der Betreuungsvereinbarung:Finanzierung von Publikationen"
+*	B2l Betreuungsvereinbarung: Finanzierung von Konferenzteilnahmen
+	tab adsv03l dataset
+cap drop B2l
+gen B2l = adsv03l
+lab var B2l "B2:Inhalt der Betreuungsvereinbarung:Finanzierung von Konferenzteilnahmen"
+
+lab def B2_lb 	1 "Schriftlich vereinbart"	 ///
+				2 "Mündlich vereinbart"		 ///
+				3 "Nicht vereinbart", replace	
+	foreach var of varlist B2* {
+				lab val `var' B2_lb
+				}
+				
+		foreach var of varlist B2* {
+					tab `var' dataset, mis 
+					}
+				
+****************B3 Anzahl der Betreuer -> Mehrpersonenbetreuung
+	tab adsv04 dataset		// 20218 + 2020
+	tab adsv04_g1 dataset 	// 2022
+	tab adsv18 dataset		// 2020 + 2022
+cap drop B3
+gen B3 = .
+	replace B3 = adsv04 if dataset <= 1
+	replace B3 = adsv04_g1 if dataset == 2
+recode B3 (0/0.49=0) (0.5/1.49=1) (1.5/2.49=2) (2.5/100=3)
+	replace B3 = 0 if adsv18==2 & dataset>=1
+lab var B3 "B3:Anzahl der Betreuer*innen"
+la def B3_lb 	0 "Kein*e Betreuer*in" 	///
+				1 "Ein*e Beteuer*in" 	///
+				2 "Zwei Betreuer*innen" ///
+				3 "Mehr als zwei Betreuer*innen", modify
+la val B3 B3_lb
+	tab B3 dataset
+
+****************B4 Austauschhäufigkeit mit dem Hauptbetreuer
+	tab adsv10 dataset
+cap drop B4
+gen B4 = adsv10 
+lab var B4 "B4:Austauschhäufigkeit mit dem Hauptbetreuer"
+lab def B4_lb 	1 "Seltener als einmal pro Semester" 	///
+				2 "Etwa einmal im Semester" 			///
+				3 "Mehrmals im Semester" 				///
+				4 "Einmal pro Woche" 					///
+				5 "Mehrmals pro Woche", replace
+lab val B4 B4_lb
+	tab B4 dataset
+
+****************B5 Betreuungszufriedenheit
+tab adsv12a dataset, mis //2018
+tab adsv12b dataset, mis //2018
+tab adsv12c dataset, mis //2018
+tab adsv20a dataset, mis //2020/20222
+tab adsv20b dataset, mis //2020/2022
+tab adsv20c dataset, mis //2020/2022
+
+lab def B5_lb 	1 "Gar nicht zufrieden (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Sehr zufrieden (5)", replace
+
+* Zufriedenheit (Haupt-)Betreuer
+cap drop B5a
+gen B5a = .
+	replace B5a = adsv12a if dataset == 0
+	replace B5a = adsv20a if dataset >= 1
+lab var B5a "B5:Zufriedenheit:Mit dem (Haupt-)Betreuer"
+lab val B5a B5_lb
+	tab B5a dataset
+* Zufriedenheit Angebote Hochschule
+cap drop B5b
+gen B5b = .
+	replace B5b = adsv12b if dataset == 0
+	replace B5b = adsv20b if dataset >= 1
+lab var B5b "B5:Zufriedenheit:Mit den Angeboten der Hochschule für Promovierende"
+lab val B5b B5_lb
+	tab B5b dataset
+* Zufriedenheit Betreuung Allgemein
+cap drop B5c
+gen B5c = .
+	replace B5c = adsv12c if dataset == 0
+	replace B5c = adsv20c if dataset >= 1
+lab var B5c "B5:Zufriedenheit:Mit der Betreuung im Allgemeinen"
+lab val B5c B5_lb
+	tab B5c dataset
+
+****************B6 Unterstützung
+	tab adcd17a dataset //2018 
+	tab adcd33a dataset //2020 + 2022
+*Ausgangsvariablen müssen zusammengeführt werden
+	replace adcd17a=adcd33a if dataset>=1
+	replace adcd17b=adcd33b if dataset>=1
+	replace adcd17c=adcd33c if dataset>=1
+	replace adcd17d=adcd33d if dataset>=1
+	replace adcd17e=adcd33e if dataset>=1
+	replace adcd17f=adcd33f if dataset>=1
+	replace adcd17g=adcd33g if dataset>=1
+	replace adcd17h=adcd33h if dataset>=1
+	replace adcd17i=adcd33i if dataset>=1
+	replace adcd17j=adcd33j if dataset>=1
+	replace adcd17k=adcd33k if dataset>=1
+	replace adcd17l=adcd33l if dataset>=1
+cap drop ue*
+	gen uefachlich=(adcd17a+adcd17b+adcd17c)/3
+	gen ueemotional=(adcd17d+adcd17e+adcd17f)/3
+	gen uenetzwerk=(adcd17g+adcd17h+adcd17i)/3
+	gen uekarriere=(adcd17j+adcd17k+adcd17l)/3
+gen uegesamt=(uefachlich+ueemotional+uenetzwerk+uekarriere)/4
+*hist uegesamt, normal scheme(s2mono) freq
+lab def B6_lb 	1 "Gering"	///
+				2 "Mittel" ///
+				3 "Hoch", replace
+	tab uegesamt dataset
+*	B6 Unterstützung (SS[CO]) Unterstützung insgesamt
+cap drop B6
+gen B6=.
+	replace B6=1 if uegesamt <=2.4
+	replace B6=2 if uegesamt >=2.5 & uegesamt <=3.4
+	replace B6=3 if uegesamt >=3.5 & uegesamt <=5
+lab var B6 "B6:Grad der Unterstützung während der Promotion:Gesamt"
+lab val B6 B6_lb
+	tab B6 dataset
+ *	B6a Fachliche Unterstützung
+cap drop B6a
+gen B6a=uefachlich
+	replace B6a=1 if uefachlich <=2.4
+	replace B6a=2 if uefachlich >=2.5 & uefachlich <=3.4
+	replace B6a=3 if uefachlich >=3.5 & uefachlich <=5
+lab var B6a "B6:Grad der Unterstützung während der Promotion:Fachlich"
+lab val B6a B6_lb
+	tab B6a dataset
+*	B6b Emotionale Unterstützung
+cap drop B6b
+gen B6b=ueemotional
+	replace B6b=1 if ueemotional <=2.4
+	replace B6b=2 if ueemotional >=2.5 & ueemotional <=3.4
+	replace B6b=3 if ueemotional >=3.5 & ueemotional <=5
+lab var B6b "B6:Grad der Unterstützung während der Promotion:Emotional"
+lab val B6b B6_lb
+	tab B6b dataset
+*	B6c Netzwerkbezogene Unterstützung
+cap drop B6c
+gen B6c=uenetzwerk
+	replace B6c=1 if uenetzwerk <=2.4
+	replace B6c=2 if uenetzwerk >=2.5 & uenetzwerk <=3.4
+	replace B6c=3 if uenetzwerk >=3.5 & uenetzwerk <=5
+lab var B6c "B6:Grad der Unterstützung während der Promotion:Netzwerkbezogen"
+lab val B6c B6_lb
+	tab B6c dataset
+*	B6d Karrierebezogene Unterstützung
+cap drop B6d
+gen B6d=uekarriere
+	replace B6d=1 if uekarriere <=2.4
+	replace B6d=2 if uekarriere >=2.5 & uekarriere <=3.4
+	replace B6d=3 if uekarriere >=3.5 & uekarriere <=5
+lab var B6d "B6:Grad der Unterstützung während der Promotion:Karrierebezogen"
+lab val B6d B6_lb
+	tab B6d dataset
+
+****************B7 Strukturierung: Betreuungsstabilität und -intensität (SS[CO])
+	tab adsv01a dataset 
+	tab adsv01b dataset 
+	tab adsv01c dataset 
+	tab adsv01d dataset 
+	tab adsv01e dataset 
+	tab adsv01f dataset 
+*Pole umdrehen
+recode adsv01b (5=1) (4=2) (2=4) (1=5)
+recode adsv01c (5=1) (4=2) (2=4) (1=5)
+lab def B7_lb 	1 "Gering"	///
+				2 "Mittel" 	///
+				3 "Hoch", replace
+
+gen struktstab=(adsv01a+adsv01b+adsv01c)/3
+gen struktintens=(adsv01d+adsv01e+adsv01f)/3
+*hist struktstab, normal scheme(s2mono) freq
+*hist struktintens, normal scheme(s2mono) freq
+cap drop struktgesamt
+gen struktgesamt=(struktstab+struktintens)/2
+*hist struktgesamt, normal scheme(s2mono) freq
+
+*	B7 Strukturierung gesamt
+cap drop B7
+gen B7=.
+	replace B7=1 if struktgesamt <=2.4
+	replace B7=2 if struktgesamt >=2.5 & struktgesamt <=3.4
+	replace B7=3 if struktgesamt >=3.5 & struktgesamt <=5
+lab var B7 "B7:Grad der Strukturierung während der Promotion:Gesamt"
+lab val B7 B7_lb
+	tab B7 dataset
+* B7a Betreuungsstabilität
+cap drop B7a
+gen B7a=struktstab
+	replace B7a=1 if struktstab <=2.4
+	replace B7a=2 if struktstab >=2.5 & struktstab <=3.4
+	replace B7a=3 if struktstab >=3.5 & struktstab <=5
+lab var B7a "B7:Grad der Strukturierung während der Promotion:Betreuungsstabilität"
+lab val B7a B7_lb
+	tab B7a dataset
+*	B7b Betreuungsintensität
+cap drop B7b
+gen B7b=struktintens
+	replace B7b=1 if struktintens <=2.4
+	replace B7b=2 if struktintens >=2.5 & struktintens <=3.4
+	replace B7b=3 if struktintens >=3.5 & struktintens <=5
+lab var B7b "B7:Grad der Strukturierung während der Promotion:Betreuungsintensität"
+lab val B7b B7_lb
+	tab B7b dataset
+	
+********************************THEMENBEREICH C*********************************
+************************Art- und Struktur der Promotion*************************
+
+****************C1 Kumulative Dissertation
+	tab adcd16a dataset, mis // 2018
+	tab adcd35a dataset, mis // 2020 + 2022
+cap drop C1
+gen C1 = . 
+	replace C1 = adcd16a if dataset==0
+	replace C1 = adcd35a if dataset>=1
+lab var C1 "C1:Kumulative Dissertationsleistung"
+	recode  C1 (2=1) (1=2) (4=3) (3=.)
+lab def C1_lb 	1 "Kumulative Dissertationsleistung" 		///
+				2 "Monographische Dissertationsleistung" 	///
+				3 "Noch unentschieden", replace
+lab val C1 C1_lb
+	tab C1 dataset
+
+****************C2 Mitgliedschaft in einem strukturierten Doktorandenprogramm
+*siehe oben Diff4
+
+****************C3 Finanzierung im Rahmen des strukturierten Doktorandenprogramms
+	tab adcd07a dataset
+	tab adcd07b dataset
+	tab adcd07c dataset
+cap drop C3
+gen C3 = .
+	replace C3 = 0 if adcd07a!=1 & adcd07b!=1 & adcd07c==1
+	replace C3 = 1 if adcd07a==1 & adcd07b!=1 & adcd07c!=1
+	replace C3 = 2 if adcd07a!=1 & adcd07b==1 & adcd07c!=1
+	replace C3 = 3 if adcd07a==1 & adcd07b==1 & adcd07c!=1
+lab var C3 "C3:Finanzierung im Rahmen eines strukturierten Doktorandenprogramms"
+lab def C3_lb 	0 "Keine Finanzierung" 	///
+				1 "Stipendium" 			///
+				2 "Stelle" 				///
+				3 "Stipendium & Stelle", replace
+lab val C3 C3_lb
+	tab C3 dataset
+	
+****************C4 Externe Kooperation
+lab def C4_lb 0 "Nein" 1 "Ja", replace	
+	
+*	C4a Externe Kooperation mit: Unternehmen in der Privatwirtschaft
+	tab adcd13a dataset	// 2018
+	tab adcd13e dataset	// 2018
+	tab adcd32a dataset	// 2020 + 2022
+cap drop C4a
+gen C4a = . 
+	replace C4a = adcd13a if dataset==0 // 2018
+	replace C4a = 0 if adcd13e ==1 & dataset==0 // 2018
+	replace C4a = adcd32a if dataset>=1 // 2020 + 2022
+lab var C4a "C4:Externe Kooperation mit:Unternehmen in der Privatwirtschaft"
+lab val C4a C4_lb
+	tab C4a dataset, mis
+*	C4b Externe Kooperation mit: außeruniversitärer Forschungseinrichtung
+	tab adcd13b dataset	// 2018
+	tab adcd13e dataset	// 2018
+	tab adcd32b dataset	// 2020 + 2022
+cap drop C4b
+gen C4b = . 
+	replace C4b = adcd13b if dataset==0	// 2018
+	replace C4b = 0 if adcd13e == 1 & dataset==0 // 2018
+	replace C4b = adcd32b if dataset>=1	// 2020 + 2022
+lab var C4b "C4:Externe Kooperation mit:Außeruniversitärer Forschungseinrichtung"
+lab val C4b C4_lb
+	tab C4b dataset, mis
+*	C4c Externe Kooperation mit: sonstiger Organisation
+	tab adcd13c dataset	// 2018
+	tab adcd13e dataset	// 2018
+	tab adcd32c dataset	// 2020 + 2022
+	tab adcd32f dataset	// 2020 + 2022
+	tab adcd32e dataset	// 2020 + 2022
+cap drop C4c
+gen C4c = . 
+	replace C4c = adcd13c if dataset==0	// 2018
+	replace C4c = 0 if adcd13e == 1 & dataset==0	// 2018
+	replace C4c = 1 if (adcd32c==1 | adcd32f==1) & dataset>=1	// 2020 + 2022
+	replace C4c = 0 if ((adcd32c==0 & adcd32f==0) | (adcd32e == 1)) & dataset>=1
+lab var C4c "C4:Externe Kooperation mit:Sonstiger Organisation"
+lab val C4c C4_lb
+	tab C4c dataset, mis
+
+****************C5 Externe Kooperation mit: Fachhochschule/HAWs
+	tab adbi13 dataset, nol	// 2018 (FH + VerwaltungsFH)
+	tab adbi18 dataset	// 2020/2022 (ohne Differenzierung)
+*in 2018 items, die im Fragebogen [adbi13_g1/A18] nicht abegebildet werden???
+recode adbi18 (2 = 0) 
+cap drop C5
+gen C5 = .
+	replace C5 = adbi13 if dataset==0
+	replace C5 = adbi18 if dataset>=1
+recode C5 (1 2 3=1) (4=0)
+lab var C5 "C5:Externe Kooperation mit:Fachhochschule/Hochschule für angewandte Wissenschaften"
+lab def C5_lb 0 "Nein" 1 "Ja", replace
+lab val C5 C5_lb
+	tab C5 dataset, mis
+
+****************C6 Externe Kooperation mit: Hochschule im Ausland**
+	tab adbi11 dataset
+	tab adbi11, nol
+cap drop C6
+gen C6 = adbi11
+lab var C6 "C6:Externe Kooperation mit:Hochschule im Ausland"
+recode C6 (2=0)
+lab def C6_lb 0 "Nein" 1 "Ja", replace
+lab val C6 C6_lb
+	tab C6 dataset, mis
+	
+********************************THEMENBEREICH D*********************************
+*******************Promotionsmotive und Karriereintentionen*********************	
+****************D1 Motivation zur Arbeit an der Promotion
+
+	foreach var of varlist adtc05a-adtc05k {
+			tab `var' dataset, mis 
+			}
+*	D1a Motivation zur Arbeit an der Promotion: Promotion hat hohe persönliche 	*	Bedeutung
+cap drop D1a
+gen D1a = adtc05a
+lab var D1a "D1:Motivation zur Arbeit an der Promotion:Promotion hat hohe persönliche Bedeutung"
+*	D1b Motivation zur Arbeit an der Promotion: Promotion verschafft 
+*	Anerkennung von Anderen
+cap drop D1b
+gen D1b = adtc05b
+lab var D1b "D1:Motivation zur Arbeit an der Promotion:Promotion verschafft Anerkennung von Anderen"
+*	D1c Motivation zur Arbeit an der Promotion: Promotion ist für die 
+*	geplante Karriere notwendig
+cap drop D1c
+gen D1c = adtc05c
+lab var D1c "D1:Motivation zur Arbeit an der Promotion:Promotion ist für die geplante Karriere notwendig"
+*	D1d Motivation zur Arbeit an der Promotion: Sich beweisen,
+*	dass man es schafft
+cap drop D1d
+gen D1d = adtc05d
+lab var D1d "D1:Motivation zur Arbeit an der Promotion:Sich beweisen, dass man es schafft"
+*	D1e Motivation zur Arbeit an der Promotion: 
+*	Promotion entspricht dem Selbstbild*
+cap drop D1e
+gen D1e = adtc05e
+lab var D1e "D1:Motivation zur Arbeit an der Promotion:Promotion entspricht dem Selbstbild"
+*	D1f Motivation zur Arbeit an der Promotion: Es macht Spaß zu forschen
+cap drop D1f
+gen D1f = adtc05f
+lab var D1f "D1:Motivation zur Arbeit an der Promotion:Es macht Spaß zu forschen"
+*	D1g Motivation zur Arbeit an der Promotion: Schlechtes Gewissen, 
+*	wenn nicht promoviert werden würde
+cap drop D1g
+gen D1g = adtc05g
+lab var D1g "D1:Motivation zur Arbeit an der Promotion:Schlechtes Gewissen, wenn nicht promoviert werden würde"
+*	D1h Motivation zur Arbeit an der Promotion: Eröffnung besserer 
+*	Berufschancen in der Zukunft
+cap drop D1h
+gen D1h = adtc05h
+lab var D1h "D1:Motivation zur Arbeit an der Promotion:Eröffnung besserer Berufschancen in der Zukunft"
+*	D1i Motivation zur Arbeit an der Promotion: Verdienen des gegenwärtigen
+*	Lebensunterhalts
+cap drop D1i
+gen D1i = adtc05i
+lab var D1i "D1:Motivation zur Arbeit an der Promotion:Verdienen des gegenwärtigen Lebensunterhalts"
+*	D1j Motivation zur Arbeit an der Promotion: Inhalte der Promotion 
+*	werden als spannend empfunden
+cap drop D1j
+gen D1j = adtc05j
+lab var D1j "D1:Motivation zur Arbeit an der Promotion:Inhalte der Promotion werden als spannend empfunden"
+*	D1k Motivation zur Arbeit an der Promotion: eigentlich liegt 
+*	keine Motivation vor, die Promotion fortzuführen*
+cap drop D1k
+gen D1k = adtc05k
+lab var D1k "D1:Motivation zur Arbeit an der Promotion:Keine Motivation, die Promotion fortzuführen"
+
+lab def D1_lb 	1 "Trifft gar nicht zu (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Trifft völlig zu (5)", replace
+	foreach var of varlist D1* {
+				lab val `var' D1_lb
+				}
+				
+		foreach var of varlist D1* {
+					tab `var' dataset, mis 
+					}
+
+****************D2 Erwägung des Promotionsabbruchs
+	tab adid04 dataset, mis
+cap drop D2
+gen D2 = adid04
+lab var D2 "D2:Erwägung des Promotionsabbruchs"
+lab def D2_lb 1 "Niemals" 2 "Selten" 3 "Gelegentlich" 4 "Oft" 5 "Ständig", replace
+lab val D2 D2_lb
+	tab D2 dataset, col	
+
+****************D3 Gründe zur Erwägung des Promotionsabbruchs
+	foreach var of varlist adid05* {
+				tab `var' dataset, mis 
+				}
+*adid05k in Prom2018 keine Werte
+
+*	D3a Gründe Abbruchgedanken: zu hohe Arbeitsbelastung durch berufliche Tätigkeit
+cap drop D3a
+gen D3a = adid05a
+lab var D3a "D3:Gründe Abbruchgedanken:Zu hohe Arbeitsbelastung durch berufliche Tätigkeit"
+*	D3b Gründe Abbruchgedanken: Veränderung Lebenssituation Partner/in
+cap drop D3b
+gen D3b = adid05b
+lab var D3b "D3:Gründe Abbruchgedanken:Veränderung Lebenssituation Partner/in"
+*	D3c Gründe Abbruchgedanken: Vereinbarkeit von Promotion und Familie
+cap drop D3c
+gen D3c = adid05c
+lab var D3c "D3:Gründe Abbruchgedanken:Vereinbarkeit von Promotion und Familie"
+*	D3d Gründe Abbruchgedanken: Probleme mit der Betreuung der Promotion
+cap drop D3d
+gen D3d = adid05d
+lab var D3d "D3:Gründe Abbruchgedanken:Probleme mit der Betreuung der Promotion"
+*	D3e Gründe Abbruchgedanken: gesundheitliche Probleme
+cap drop D3e
+gen D3e = adid05e
+lab var D3e "D3:Gründe Abbruchgedanken:Gesundheitliche Probleme"
+*	D3f Gründe Abbruchgedanken: Aufnahme eines (anderen) Beschäftigungsverhältnisses
+cap drop D3f
+gen D3f = adid05f
+lab var D3f "D3:Gründe Abbruchgedanken:Aufnahme eines (anderen) Beschäftigungsverhältnisses"
+*	D3g Gründe Abbruchgedanken: Thema hat sich als schwer realisierbar herausgestellt
+cap drop D3g
+gen D3g = adid05g
+lab var D3g "D3:Gründe Abbruchgedanken:Thema hat sich als schwer realisierbar herausgestellt"
+lab val D3g D3_lb
+*	D3h Gründe Abbruchgedanken: Zweifel an Eignung für eine Promotion
+cap drop D3h
+gen D3h = adid05h
+lab var D3h "D3:Gründe Abbruchgedanken:Zweifel an Eignung für eine Promotion"
+*	D3i Gründe Abbruchgedanken: mangelndes Interesse am Promotionsthema
+cap drop D3i
+gen D3i = adid05i
+lab var D3i "D3:Gründe Abbruchgedanken:Mangelndes Interesse am Promotionsthema"
+*	D3j Gründe Abbruchgedanken: keine ausreichende Finanzierung
+	tab adid05j
+cap drop D3j
+gen D3j = adid05j
+lab var D3j "D3:Gründe Abbruchgedanken:Keine ausreichende Finanzierung"
+*	D3k Gründe Abbruchgedanken: attraktives Stellenabgebot
+	tab adid05k
+cap drop D3k
+gen D3k = . if dataset == 0 
+replace D3k = adid05k if dataset>=1
+lab var D3k "D3:Gründe Abbruchgedanken:Attraktives Stellenangebot"
+
+lab def D3_lb 	1 "Spielt(e) gar keine Rolle (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Spielt(e) eine sehr große Rolle (5)", replace
+	foreach var of varlist D3* {
+				lab val `var' D3_lb 
+				}
+
+		foreach var of varlist D3* {
+					tab `var' dataset, mis 
+					}
+	
+********************************THEMENBEREICH E*********************************
+***************Karrierewege und Perspektiven nach der Promotion*****************
+
+****************E1 Sektorpräferenz
+	tab acrg07a dataset // 2018
+	tab acrg19a dataset // 2020 + 2022
+	tab aemp109 dataset // 2020 + 2022
+*Kategorien und Filterführung in Prom2020.1 geändert, acrg19a==6 auslassen,
+*da 2019 nicht gefragt und Häufigkeit unter <1%
+cap drop E1
+gen E1=.
+	replace E1=acrg07a if dataset==0
+	replace E1=1 if dataset>=1 & aemp109==1
+	replace E1=2 if dataset>=1 & aemp109==2
+	replace E1=3 if dataset>=1 & aemp109==3
+	replace E1=4 if dataset>=1 & acrg19a==2
+	replace E1=5 if dataset>=1 & acrg19a==3
+	replace E1=6 if dataset>=1 & acrg19a==4
+	replace E1=7 if dataset>=1 & acrg19a==5
+lab var E1 "E1:Sektorpräferenz"
+lab def E1_lb 	1 "Hochschulen"										/// 
+				2 "Öffentlich geförderte außeruniversitäre Forschungseinrichtungen"  ///
+				3 "Sonstiger öffentlicher Dienst"					///
+				4 "Privatwirtschaft/Industrie"						///
+				5 "Privater Non-Profit-Sektor"						///
+				6 "Sonstiges"										///
+				7 "Unentschlossen", replace
+lab val E1 E1_lb
+	tab E1 dataset, col	
+	
+****************E2 Karriereintention Professur
+	tab acrg08 dataset, mis //Professur angestrebt, 
+	*Filter in 2018 schließt unentschlossene bei Verbleibsabsicht Wissenschaft aus
+	tab acrg04 dataset, mis //Verbleibsabsicht Wissenschaft
+	tab acrg06 dataset, mis //Rückkehrabsicht Wissenschaft
+	tab acrg04 acrg08 if dataset==0, mis
+	tab acrg04 acrg08 if dataset==1, mis
+	tab acrg04 acrg08 if dataset==2, mis
+cap drop E2
+gen E2 = .
+	replace E2 = acrg08 if dataset==0
+	replace E2 = acrg08 if (acrg04==1 | acrg06==1) & dataset>=1
+lab var E2 "E2:Karriereintention Professur"
+lab def E2_lb 1 "Ja" 2 "Nein" 3 "Unentschieden"
+lab val E2 E2_lb
+	tab E2 dataset, mis
+
+****************E3 Allgemein antizipierte Schwierigkeiten bei der Stellensuche
+****************nach einer Promotion im eigenen Fach
+	tab acrg11a dataset, mis //2018, 10er Skala
+	tab acrg17a dataset, mis //2020 + 2022, 5er Skala	
+	tab acrg11b dataset, mis //2018, 10er Skala
+	tab acrg17b dataset, mis //2020 + 2022, 5er Skala
+
+lab def E3_lb 	1 "Sehr leicht (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Sehr schwer (5)", replace
+*	E3a Stellensuche PostDoc Position allgemein
+cap drop E3a
+gen E3a = .
+	replace E3a = acrg11a if dataset==0
+recode E3a (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+	replace E3a = acrg17a if dataset>=1
+lab var E3a "E3:Allg. Schwierigkeiten Stellensuche:Post-Doc-Position"
+lab val E3a E3_lb
+	tab E3a dataset, mis
+*	E3b Stellensuche außerhalb Wissenschaft allgemein
+cap drop E3b
+gen E3b = .
+	replace E3b = acrg11b if dataset==0
+recode E3b (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+	replace E3b = acrg17b if dataset>=1
+lab var E3b "E3:Allg. Schwierigkeiten Stellensuche:Beschäftigungsadäquate Stelle außerhalb der Wissenschaft"
+lab val E3b E3_lb
+	tab E3b dataset, mis
+
+****************E4 Persönlich antizipierte Schwierigkeiten bei der Stellensuche
+****************nach dem Abschluss der Promotion
+	tab acrg12a dataset, mis //2018, 10er Skala
+	tab acrg18a dataset, mis //2020 + 2022, 5er Skala	
+	tab acrg12b dataset, mis //2018, 10er Skala
+	tab acrg18b dataset, mis //2020 + 2022, 5er Skala
+
+lab def E4_lb	1 "Sehr leicht (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Sehr schwer (5)", replace
+
+*	E4a Stellensuche PostDoc Position persönlich
+cap drop E4a
+gen E4a = .
+	replace E4a = acrg12a if dataset==0
+recode E4a (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+	replace E4a = acrg18a if dataset>=1
+lab var E4a "E4:Persönl. Schwierigkeiten Stellensuche:Post-Doc-Position"
+lab val E4a E4_lb
+	tab E4a dataset, mis
+*	E4b Stellensuche außerhalb Wissenschaft persönlich
+cap drop E4b
+gen E4b = .
+replace E4b = acrg12b if dataset==0
+recode E4b (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+replace E4b = acrg18b if dataset>=1
+lab var E4b "E4:Persönl. Schwierigkeiten Stellensuche:Beschäftigungsadäquate Stelle außerhalb der Wissenschaft"
+lab val E4b E4_lb
+	tab E4b dataset, mis
+	
+********************************THEMENBEREICH F*********************************
+***********************************Mobilität************************************	
+****************F1 Internationale Mobilität
+*Prom2018: keine zeitliche Begrenzung
+*Prom2020/2022: mind. 1 Monat 
+*nicht über Befragungen hinweg vergleichbar
+	tab aabr01 dataset, mis // 2018
+	tab aabr08 dataset, mis // 2020 + 2022
+cap drop F1
+gen F1 = . 
+	replace F1 = aabr01 if dataset==0
+	replace F1 = aabr08 if dataset>=1
+recode F1 (2=0) (3=1)
+lab var F1 "F1:Internationale Mobilität"
+lab def F1_lb 	0 "(Noch) kein promotions-/wissenschaftsbezogenen Auslandsaufenthalt" ///
+				1 "Mindestens ein promotions-/wissenschaftsbezogener Auslandsaufenthalt", replace
+lab val F1 F1_lb
+	tab F1 dataset, mis col
+
+****************F2 Gastländer
+*Prom2018: keine zeitliche Begrenzung, alle Aufenthalte, nur die ersten 4 berücksichtigt
+*Prom2020/2022: mind. 1 Monat, die vier wichtigsten Aufenthalte  
+*nicht über Befragungen hinweg vergleichbar
+	foreach var of varlist aabr03_g* {
+				tab `var' dataset, mis 
+				} //2018
+	foreach var of varlist aabr07*b_g1 {
+				tab `var' dataset, mis 
+				} //2020 + 2022				
+*	Land 1
+cap drop F2a
+gen F2a = .
+	replace F2a = aabr03_g1 if dataset==0 // prom2018.1
+	replace F2a = aabr07ab_g1 if dataset>=1 // prom2020.1
+lab var F2a "F2:Auslandsaufenthalt:Land 1"
+lab val F2a landlabelset
+*	Land 2
+cap drop F2b
+gen F2b = .
+	replace F2b = aabr03_g2 if dataset==0 // prom2018.1
+	replace F2b = aabr07bb_g1 if dataset>=1 // prom2020.1
+lab var F2b "F2:Auslandsaufenthalt:Land 2"
+lab val F2b landlabelset
+*	Land 3
+cap drop F2c
+gen F2c = . 
+	replace F2c = aabr03_g3 if dataset==0 // prom2018.1
+	replace F2c = aabr07cb_g1 if dataset>=1 // prom2020.1
+lab var F2c "F2:Auslandsaufenthalt:Land 3"
+lab val F2c landlabelset
+*	Land 4
+cap drop F2d
+gen F2d = .
+	replace F2d = aabr03_g4 if dataset==0 // prom2018.1
+	replace F2d = aabr07db_g1 if dataset>=1 // prom2020.1
+lab var F2d "F2:Auslandsaufenthalt:Land 4"
+lab val F2d landlabelset
+	foreach var of varlist F2* {
+				tab `var' dataset, mis 
+				}
+
+****************F3 Hinderungsgründe Auslandsaufenthalt
+	foreach var of varlist aabr05* {
+				tab `var' dataset, mis 
+				}
+*	F3a Hinderungsgründe Auslandsaufenthalt: Mangelnde Fremdsprachenkenntnisse
+cap drop F3a
+gen F3a = aabr05a
+lab var F3a "F3:Hinderungsgründe Auslandsaufenthalt:Mangelnde Fremdsprachenkenntnisse"
+*	F3b Hinderungsgründe Auslandsaufenthalt: Kulturelle Schwierigkeiten
+cap drop F3b
+gen F3b = aabr05b
+lab var F3b "F3:Hinderungsgründe Auslandsaufenthalt:Kulturelle Schwierigkeiten"
+*	F3c Hinderungsgründe Auslandsaufenthalt: Mangelnde Motivation
+cap drop F3c
+gen F3c = aabr05c
+lab var F3c "F3:Hinderungsgründe Auslandsaufenthalt:Mangelnde Motivation"
+*	F3d Hinderungsgründe Auslandsaufenthalt: Fehlende Beratungs- und Unterstützungsangebote
+cap drop F3d
+gen F3d = aabr05d
+lab var F3d "F3:Hinderungsgründe Auslandsaufenthalt:Fehlende Beratungs- und Unterstützungsangebote"
+*	F3e Hinderungsgründe Auslandsaufenthalt: Kontaktverlust zum wissenschaftlichen Netzwerk in der BRD
+cap drop F3e
+gen F3e = aabr05e
+lab var F3e "F3:Hinderungsgründe Auslandsaufenthalt:Kontaktverlust zum wissenschaftlichen Netzwerk in der BRD"
+*	F3f Hinderungsgründe Auslandsaufenthalt: Stellenschwierigkeiten
+cap drop F3f
+gen F3f = aabr05f
+lab var F3f "F3:Hinderungsgründe Auslandsaufenthalt:Stellenschwierigkeiten"
+*	F3g Hinderungsgründe Auslandsaufenthalt: Gesundheitliche Probleme
+cap drop F3g
+gen F3g = aabr05g
+lab var F3g "F3:Hinderungsgründe Auslandsaufenthalt:Gesundheitliche Probleme"
+*	F3h Hinderungsgründe Auslandsaufenthalt: Trennung von Freunden und Familie
+cap drop F3h
+gen F3h = aabr05h
+lab var F3h "F3:Hinderungsgründe Auslandsaufenthalt:Trennung von Freunden und Familie"
+*	F3i Hinderungsgründe Auslandsaufenthalt: Finanzierungsschwierigkeiten
+cap drop F3i
+gen F3i = aabr05i
+lab var F3i "F3:Hinderungsgründe Auslandsaufenthalt:Finanzierungsschwierigkeiten"
+*	F3j Hinderungsgründe Auslandsaufenthalt: Geringer persönlicher Nutzen
+cap drop F3j
+gen F3j = aabr05j
+lab var F3j "F3:Hinderungsgründe Auslandsaufenthalt:Geringer persönlicher Nutzen"
+
+lab def F3_lb 	1 "Gar nicht hinderlich" 2 "2" 3 "3" 4 "4" ///
+				5 "Sehr hinderlich", replace
+	foreach var of varlist F3* {
+		lab val `var' F3_lb
+		}
+
+	foreach var of varlist F3* {
+				tab `var' dataset, mis 
+				}
+				
+****************F4 Mobilität nach der Promotion
+	foreach var of varlist aabr06* {
+				tab `var' dataset, mis 
+				}
+*	F4a Geplante Auslandsmobilität (nach der Promotion): 
+*	dauerhafte Erwerbstätigkeit ohne Forschungsbezug
+cap drop F4a
+gen F4a = aabr06a
+lab var F4a "F4:Geplante Auslandsmobilität:Dauerhafte Erwerbstätigkeit ohne Forschungsbezug"
+*	F4b Geplante Auslandsmobilität (nach der Promotion): 
+*	dauerhafte Erwerbstätigkeit mit Forschungsbezug
+cap drop F4b
+gen F4b = aabr06b
+lab var F4b "F4:Geplante Auslandsmobilität:Dauerhafte Erwerbstätigkeit mit Forschungsbezug"
+*	F4c Geplante Auslandsmobilität (nach der Promotion): 
+*	zeitweilige Erwerbstätigkeit ohne Forschungsbezug
+cap drop F4c
+gen F4c = aabr06c
+lab var F4c "F4:Geplante Auslandsmobilität:Zeitweilige Erwerbstätigkeit ohne Forschungsbezug"
+*	F4d Geplante Auslandsmobilität (nach der Promotion): 
+*	zeitweiliger Forschungs-/Lehraufenthalt
+cap drop F4d
+gen F4d = aabr06d
+lab var F4d "F4:Geplante Auslandsmobilität:Zeitweiliger Forschungs-/Lehraufenthalt"
+*	F4e Geplante Auslandsmobilität (nach der Promotion): 
+*	Weiterbildungsaufenthalt
+cap drop F4e
+gen F4e = aabr06e
+lab var F4e "F4:Geplante Auslandsmobilität:Weiterbildungsaufenthalt"
+*	F4f Geplante Auslandsmobilität (nach der Promotion): 
+*	anderer/privater Aufenthalt
+cap drop F4f
+gen F4f = aabr06f
+lab var F4f "F4:Geplante Auslandsmobilität:Anderer/privater Aufenthalt"
+*	F4g Geplante Auslandsmobilität (nach der Promotion): 
+*	kein Aufenthalt geplant
+cap drop F4g
+gen F4g = aabr06g
+lab var F4g "F4:Geplante Auslandsmobilität:Kein Aufenthalt geplant"
+*	F4g Geplante Auslandsmobilität (nach der Promotion): 
+*	weiß es noch nicht
+* 	(Nur 2020)
+cap drop F4h
+gen F4h = .
+	replace F4h = aabr06h if dataset>=1
+lab var F4h "F4:Geplante Auslandsmobilität:Ich weiß es noch nicht"
+
+lab def F4_lb 0 "Nein" 1 "Ja", replace
+	foreach var of varlist F4* {
+		lab val `var' F4_lb
+		}
+
+		foreach var of varlist F4* {
+					tab `var' dataset, mis 
+					}
+
+****************F5 Mobilität beim Übergang in die Promotion
+*zur Validierung siehe HS10 und do file HS10 validierung
+	tab aedb04b_g1 dataset
+	tab adbi10a_g1 dataset
+cap drop F5
+gen F5=.
+	replace F5=1 if aedb04b_g1 != adbi10a_g1  
+	replace F5=1 if aedb04b_g1 == 9990 // Studium im Ausland = mobil
+	replace F5=0 if aedb04b_g1 == adbi10a_g1 
+	replace F5=. if missing(aedb04b_g1) | missing(adbi10a_g1) // fälle mit missings 
+lab var F5 "F5:Wechsel der Hochschule beim Übergang vom Studium in die Promotion"
+lab def F5_lb 0 "Nein" 1 "Ja", replace
+lab val F5 F5_lb 
+	tab F5 dataset, col mis
+	
+********************************THEMENBEREICH G*********************************
+**************Private Lebenssituation / Persönlicher Hintergrund****************
+
+****************G1 Finanzierung der Promotion (Quellen) 
+* ab Prom2020.1 umschreiben auf neue Kategorie
+
+*	G1a Finanzierungsquelle: Beschäftigung an Hochschule oder Forschungseinrichtung
+	tab afin01a dataset //2018
+	tab afin11a dataset //2020 + 2022
+cap drop G1a
+gen G1a = .
+	replace G1a = afin01a if dataset==0
+	replace G1a = afin11a if dataset>=1
+lab var G1a "G1:Finanzierungsquelle:Beschäftigung an Hochschule oder Forschungseinrichtung"
+*	G1b Finanzierungsquelle: Beschäftigung außerhalb Hochschule oder Forschungseinrichtung
+	tab afin01b dataset
+	tab afin11b dataset
+cap drop G1b
+gen G1b = .
+	replace G1b = afin01b if dataset==0
+	replace G1b = 1 if afin01e==1 & dataset==0 // Kategorie in Prom2020.1 entfallen
+replace G1b = afin11b if dataset>=1
+lab var G1b "G1:Finanzierungsquelle:Beschäftigung außerhalb Hochschule oder Forschungseinrichtung"
+*	G1c Finanzierungsquelle: freiberufliche Tätigkeit mit Forschungs-/Entwicklungsbezug
+	tab afin01c dataset
+	tab afin11c dataset
+cap drop G1c
+gen G1c = .
+	replace G1c = afin01c if dataset==0
+	replace G1c = afin11c if dataset>=1
+lab var G1c "G1:Finanzierungsquelle:Freiberufliche Tätigkeit mit Forschungs-/Entwicklungsbezug"
+*	G1d Finanzierungsquelle: freiberufliche Tätigkeit ohne Forschungs-/Entwicklungsbezug
+	tab afin01d dataset
+	tab afin11d dataset
+	cap drop G1d
+gen G1d = .
+	replace G1d = afin01d if dataset==0
+	replace G1d = afin11d if dataset>=1
+lab var G1d "G1:Finanzierungsquelle:Freiberufliche Tätigkeit ohne Forschungs-/Entwicklungsbezug"
+*	G1e Finanzierungsquelle: Stipendium (neu in 2020 als Item e)
+	tab afin01g dataset
+	tab afin11e dataset
+cap drop G1e
+gen G1e = .
+	replace G1e = afin01g if dataset==0
+	replace G1e = afin11e if dataset>=1
+lab var G1e "G1:Finanzierungsquelle:Stipendium"
+*	G1f Finanzierungsquelle: Arbeitslosengeld I oder II
+	tab afin01h dataset
+	tab afin11f dataset
+cap drop G1f
+gen G1f = .
+	replace G1f = afin01h if dataset==0
+	replace G1f = afin11f if dataset>=1
+lab var G1f "G1:Finanzierungsquelle:Arbeitslosengeld I oder II"
+*	G1g Finanzierungsquelle: Eltern-, Erziehungs-, oder Mutterschaftsgeld
+	tab afin01i dataset
+	tab afin11g dataset
+cap drop G1g
+gen G1g = .
+	replace G1g = afin01i if dataset==0
+	replace G1g = afin11g if dataset>=1
+lab var G1g "G1:Finanzierungsquelle:Eltern-, Erziehungs-, oder Mutterschaftsgeld"
+*	G1h Finanzierungsquelle: Geldbeträge von Partner/in, Eltern oder Verwandten
+	tab afin01j dataset
+	tab afin11h dataset
+cap drop G1h
+gen G1h = .
+	replace G1h = afin01j if dataset==0
+	replace G1h = afin11h if dataset>=1
+lab var G1h "G1:Finanzierungsquelle:Geldbeträge von Partner/in, Eltern oder Verwandten"
+*	G1i Finanzierungsquelle: Vermögen, Ersparnisse, Darlehen + sonstige
+	tab afin01k dataset
+	tab afin11i dataset
+cap drop G1i
+gen G1i = .
+	replace G1i = afin01k if dataset==0 
+	replace G1i = afin11i if dataset>=1 
+lab var G1i "G1:Finanzierungsquelle:Vermögen, Ersparnisse, Darlehen"
+*	G1j Finanzierungsquelle: Sonstige Quellen
+	tab afin01l dataset
+	tab afin11j dataset
+cap drop G1j
+gen G1j = . 
+	replace G1j = afin01l if dataset==0
+	replace G1j = afin11j if dataset>=1
+lab var G1j "G1:Finanzierungsquelle:Sonstige Quellen"
+
+lab def G1_lb 0 "Nein" 1 "Ja", replace
+	foreach var of varlist G1* {
+				lab val `var' G1_lb 
+				}
+				
+				foreach var of varlist G1* {
+					tab `var' dataset, mis
+					}
+	
+*EINSCHUB***********************THEMENBEREICH A*********************************
+**********************Arbeits- und Beschäftigungsbedingungen********************	
+****************A1 Promotionsform/Dominierender Promotionskontext
+	tab adcd04 dataset		// 2018 + 2020
+	tab adcd53 dataset		// 2022
+	tab adcd07a dataset		// 2018 + 2020 + 20222
+	tab adcd07b dataset		// 2018 + 2020 + 20222
+cap drop A1
+gen A1=.
+	replace A1= 1 if G1a==1 //Stelle an HS/FEb 
+	replace A1= 2 if adcd04==1 & (adcd07a==1 | adcd07b==1) /* Stelle in strukt. Programm 	2018/2022  */
+	replace A1= 2 if adcd53==1 & (adcd07a==1 | adcd07b==1) /* Stelle in strukt. Programm 	2022  */
+	replace A1= 3 if A1==. & G1e==1  // Stipendium außerhalb Programm
+	replace A1= 4 if 	A1==. & (G1b==1 | G1c==1 | G1d==1 | G1f==1 |  G1g==1 | ///
+						G1h==1 | G1i==1 |  G1j==1) // andere Finanzierungsformen = freie Promotion
+ label var A1 "A1:Promotionskontext" 
+label define A1_lb 	1 "Stelle an Hochschule/Forschungseinrichtung" ///
+					2 "Strukturiertes Programm" ///
+					3 "Stipendium (außerhalb struk. Programm)" ///
+					4 "Freie bzw. externe Promotion", modify
+la val A1 A1_lb
+	tab dataset A1, row
+		
+****************G2 Finanzierung der Promotion (Betrag) 
+	sum afin04* if dataset == 0, detail //2018
+ 	sum afin12* if dataset == 1, detail //2020
+	sum afin12* if dataset == 2, detail //2022
+*	G2 für Prom2018.1 
+cap drop afin18sum
+egen afin18sum = rowtotal(afin04*)
+	replace afin18sum=. if dataset==1 	// Fälle aus Prom2020.1
+	replace afin18sum=. if dataset==2	// Fälle aus Prom2022.1
+	replace afin18sum=. if afin18sum==0 // Summe 0 == unplausibel
+
+_pctile afin18sum, p(99.5) // wo liegt 0,5% -> 10000
+return list
+
+*gültiger Fall aus Prom2018.1, wenn Einkommen aus abhängiger
+*Beschäftigung größer 0 und Gesamtsumme kleiner <10.000
+replace afin18sum=. if afin18sum>=10000 & dataset==0
+replace afin18sum=. if (afin01a==1 & afin04a==0) | (afin01b==1 & afin04b==0) & dataset==0
+
+*	G2 für Prom2020.1
+cap drop afin20sum
+egen afin20sum = rowtotal(afin12*_g1)
+	replace afin20sum=. if dataset==0 // Fälle aus Prom2018.1
+	replace afin20sum=. if dataset==2 // Fälle aus Prom2022.1
+	replace afin20sum=. if afin20sum==0 // Summe 0 == unplausibel
+
+_pctile afin20sum, p(99.5) // wo liegt 0,5% -> 7000
+return list
+
+*gültiger Fall aus Prom2020.1, wenn Einkommen aus abhängiger
+*Beschäftigung größer 0 und Gesamtsumme kleiner <7.000
+replace afin20sum=. if afin20sum>=7000 & dataset==1
+replace afin20sum=. if (afin11a==1 & afin12a_g1==0) | (afin11b==1 & afin12b_g1==0) & dataset==1
+
+*	G2 für Prom2022.1
+cap drop afin22sum
+egen afin22sum = rowtotal(afin12*_g1) 
+*egen afin22sum = rowtotal(afin12l_g1 afin12d_g1 afin12e_g1 afin12f_g1 ///
+afin12g_g1 afin12h_g1 afin12i_g1 afin12j_g1)
+	replace afin22sum=. if dataset==0 // Fälle aus Prom2018.1
+	replace afin22sum=. if dataset==1 // Fälle aus Prom2022.1
+	replace afin22sum=. if afin22sum==0 // Summe 0 == unplausibel
+
+_pctile afin22sum, p(99.5) // wo liegt 0,5% -> 8000
+return list
+
+*gültiger Fall aus Prom2022.1, wenn Einkommen aus abhängiger
+*Beschäftigung größer 0 und Gesamtsumme kleiner <8.000
+	replace afin22sum=. if afin22sum>=8000 & dataset==2
+	replace afin22sum=. if (afin11a==1 & afin12a_g1==0) | /// 
+							(afin11b==1 & afin12b_g1==0) & dataset==2
+					
+*	Zusammenführung G2
+cap drop G2_Fm
+gen G2_Fm = .
+	replace G2_Fm = afin18sum if dataset==0
+	replace G2_Fm = afin20sum if dataset==1
+	replace G2_Fm = afin22sum if dataset==2
+la var G2_Fm "Fokus G2:Durchschnittliches Nettoeinkommen"
+	bysort dataset:sum G2_Fm
+
+recode G2_Fm (0/999=1) (1000/1499=2) (1500/1999=3) (2000/2499=4) ///
+(2500/2999=5) (3000/10000=6) (else = .p) , gen(G2)
+
+la var G2 "G2:Höhe der Einkünfte"
+la def G2_lb	1 "<1000 €" ///
+				2 "1000-1500 €" ///
+				3 "1500-2000 €" ///
+				4 "2000-2500 €" ///
+				5 "2500-3000 €" ///
+				6 ">3000 €", replace
+la val G2 G2_lb
+	tab G2 dataset, col
+
+*****************G3 Suffizienz und Sicherheit der Finanzierung
+	tab afin05a dataset 
+	tab afin05b dataset 
+
+lab def G3_lb 1 "Trifft gar nicht zu" 2 "2" 3 "3" 4 "4" 5 "Trifft völlig zu", replace
+
+*	G3a Suffizienz
+cap drop G3a
+gen G3a = afin05a
+lab var G3a "G3:Finanzierung:Suffizienz"
+lab val G3a G3_lb
+	tab G3a dataset, col
+*	G3b Sicherheit
+cap drop G3b
+gen G3b = afin05b
+lab var G3b "G3:Finanzierung:Sicherheit"
+lab val G3b G3_lb
+	tab G3b dataset, col
+	
+****************G4 Elternschaft, siehe oben Diff6
+
+****************G5 Lebenszufriedenheit und Vereinbarkeit
+	tab apsy01 dataset, mis
+	tab alcd12 dataset, mis
+*	G5a Lebenszufriedenheit
+cap drop G5a
+gen G5a = .
+ replace G5a = apsy01
+lab var G5a "G5:Zufriedenheit:Lebenszufriedenheit"
+	recode G5a (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+lab def G5a_lb 1 "Überhaupt nicht zufrieden (1)" 2 "2" 3 "3" 4 "4" ///
+5 "Völlig zufrieden (5)", replace
+lab val G5a G5a_lb
+	tab G5a dataset, mis
+*	G5b Vereinbarkeit
+cap drop G5b
+gen G5b = .
+ replace G5b = alcd12
+lab var G5b "G5:Zufriedenheit:Vereinbarkeit von Arbeits- und Privatleben"
+	recode G5b (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+lab def G5b_lb 1 "Überhaupt nicht zufrieden (1)" 2 "2" 3 "3" 4 "4" ///
+5 "Völlig zufrieden (5)", replace
+lab val G5b G5b_lb
+	tab G5b dataset, mis
+
+****************G6 Gesundheit 
+*	G6A - Subjektive Einschätzung Gesundheitsszustand reduzieren auf 3 Kategorien
+	tab ahea01 dataset, col mis
+cap drop G6A
+gen G6A = .
+ replace G6A = ahea01
+ recode G6A (1/2 = 1) (3 = 2) (4/5 = 3)
+lab def G6A_lb 1 "Sehr gut/gut" 2 "Mittelmäßig" 3 "Schlecht/sehr schlecht" ///
+, replace
+lab val G6A G6A_lb
+lab var G6A "G6:Gesundheit A"
+	tab G6A dataset, col mis
+*	G6B - Consent Gesundheitsfragen
+	tab aict03 dataset, col mis
+cap drop G6B
+gen G6B = .
+ replace G6B = aict03
+ lab def G6B_lb 1 "Zustimmung" 2 "keine Zustimmung" ///
+, replace
+lab val G6B G6B_lb
+lab var G6B "G6:Gesundheit B"
+	tab G6B dataset, col mis
+*	G6c - Tage mit beeinträchtigter körperlicher Gesundheit
+	tab ahea02 dataset, mis 	// 2018
+	tab ahea02_g dataset, mis 	// 2020 + 2022
+cap drop G6c
+gen G6c = .
+	replace G6c = ahea02 if dataset == 0 // 2018
+	replace G6c = ahea02_g if dataset >= 1 // 2020 + 2022
+recode G6c (29/max=28) // Plausi
+lab var G6c "G6:Gesundheit c"
+	tab G6c dataset, mis	
+*	G6d - Tage mit beeinträchtigter seelischer Gesundheit
+	tab ahea03 dataset 		// 2018 
+	tab ahea03_g dataset 	// 2020 + 2022
+cap drop G6d
+gen G6d = .
+	replace G6d = ahea03 if dataset == 0 // 2018
+	replace G6d = ahea03_g if dataset >= 1 // 2020 + 2022
+recode G6d (29/max=28) // Plausi
+lab var G6d "G6:Gesundheit d"
+	tab G6d dataset, mis	
+*G6e - Tage mit beeinträchtigter Aktivität
+	tab ahea04 dataset, mis		// 2018 
+	tab ahea04_g dataset, mis	// 2020 + 2022
+cap drop G6e
+gen G6e = .
+	replace G6e = ahea04 if dataset == 0 // 2018
+	replace G6e = ahea04_g if dataset >= 1 // 2020 + 2022
+recode G6e (29/max=28) // Plausi
+lab var G6e "G6:Gesundheit e"
+	tab G6e dataset, mis
+
+********************************THEMENBEREICH HS********************************
+*************************Hochschulbezogene Indikatoren**************************	
+
+****************HS1 Attraktivität der Hochschule
+	foreach var of varlist adtc02* adtc13* {
+				tab `var' dataset, mis 
+				}
+	foreach var of varlist adtc13* {
+				tab `var' dataset, mis 
+				}
+*	HS1a Grund der Hochschulwahl: Standort der Hochschule
+cap drop HS1a
+gen HS1a = .
+	replace HS1a = adtc02a if dataset == 0
+	replace HS1a = adtc13a if dataset >= 1
+lab var HS1a "HS1:Grund der Hochschulwahl:Standort der Hochschule"
+*	HS1b Grund der Hochschulwahl: Forschungsbedingungen
+cap drop HS1b
+gen HS1b = .
+	replace HS1b = adtc02b if dataset == 0
+	replace HS1b = adtc13b if dataset >= 1
+lab var HS1b "HS1:Grund der Hochschulwahl:Forschungsbedingungen"
+*	HS1c Grund der Hochschulwahl: Betreuer
+cap drop HS1c
+gen HS1c = .
+	replace HS1c = adtc02c if dataset == 0
+	replace HS1c = adtc13c if dataset >= 1
+lab var HS1c "HS1:Grund der Hochschulwahl:Betreuer"
+*	HS1d Grund der Hochschulwahl: Guter Ruf der Hochschule
+cap drop HS1d
+gen HS1d = .
+	replace HS1d = adtc02d if dataset == 0
+	replace HS1d = adtc13d if dataset >= 1
+lab var HS1d "HS1:Grund der Hochschulwahl:Guter Ruf der Hochschule"
+*	HS1e Grund der Hochschulwahl: Attraktive Serviceangebote
+cap drop HS1e
+gen HS1e = .
+	replace HS1e = adtc02e if dataset == 0
+	replace HS1e = adtc13e if dataset >= 1
+lab var HS1e "HS1:Grund der Hochschulwahl:Attraktive Serviceangebote"
+*	HS1f Grund der Hochschulwahl: Einfach so ergeben
+cap drop HS1f
+gen HS1f = .
+	replace HS1f = adtc02f if dataset == 0
+	replace HS1f = adtc13f if dataset >= 1
+lab var HS1f "HS1:Grund der Hochschulwahl:Hat sich so ergeben"
+*	HS1g Grund der Hochschulwahl: Durch Studium/Beschäftigung bekannt (Prom. 2020!)
+cap drop HS1g
+gen HS1g = .
+	replace HS1g = . if dataset == 0 // Item neu in Prom2020.1
+	replace HS1g = adtc13g if dataset >= 1 
+lab var HS1g "HS1:Grund der Hochschulwahl:Durch Studium/Beschäftigung bekannt"
+*	HS1f Grund der Hochschulwahl: attraktive finanzielle Rahmenbedingungen
+cap drop HS1h
+gen HS1h = .
+	replace HS1h = . if dataset == 0 // Item neu in Prom2020.1
+	replace HS1h = adtc13h if dataset >= 1
+lab var HS1h "HS1:Grund der Hochschulwahl:Attrak. finanz. Bedingungen"
+*	HS1f Grund der Hochschulwahl:Nähe Arbeitsplatz/Kooperationspartner
+cap drop HS1i
+gen HS1i = .
+	replace HS1i = . if dataset == 0  // Item neu in Prom2020.1
+	replace HS1i = adtc13i if dataset >= 1
+lab var HS1i "HS1:Grund der Hochschulwahl:Nähe Arbeitsplatz/Kooperationspartner"
+*	HS1g Grund der Hochschulwahl: Sonstiges
+cap drop HS1j
+gen HS1j = .
+	replace HS1j = adtc02g if dataset == 0 
+	replace HS1j = . if dataset >= 1  // nur in 2018
+lab var HS1j "HS1:Grund der Hochschulwahl:Sonstiges"
+
+lab def HS1_lb 0 "Nein" 1 "Ja", replace
+	foreach var of varlist HS1* {
+				lab val `var' HS1_lb 
+				}
+	
+		foreach var of varlist HS1* {
+					tab `var' dataset, mis 
+					}
+
+****************HS2 Sichtbarkeit der Kurse
+	foreach var of varlist adcd08* {
+				tab `var' dataset, mis 
+				}
+*	HS2a Kurse angeboten: Konferenz- und Tagungsorganisation
+cap drop HS2a
+gen HS2a = adcd08a 
+lab var HS2a "HS2:Kurse angeboten:Konferenz- und Tagungsorganisation"
+*	HS2b Kurse angeboten: Personal- und Mitarbeiterführung
+cap drop HS2b
+gen HS2b = adcd08b
+lab var HS2b "HS2:Kurse angeboten:Personal- und Mitarbeiterführung"
+*	HS2c Kurse angeboten: spezielle Themen des Promotionsfachs
+cap drop HS2c
+gen HS2c = adcd08c
+lab var HS2c "HS2:Kurse angeboten:Spezielle Themen des Promotionsfachs"
+*	HS2d Kurse angeboten: Karriereplanung
+cap drop HS2d
+gen HS2d = adcd08d
+lab var HS2d "HS2:Kurse angeboten:Karriereplanung"
+*	HS2e Kurse angeboten: Verfassen englischer Texte
+cap drop HS2e
+gen HS2e = adcd08e
+lab var HS2e "HS2:Kurse angeboten:Verfassen englischer Texte"
+*	HS2f Kurse angeboten: Regeln guter wissenschaftlicher Praxis
+cap drop HS2f
+gen HS2f = adcd08f
+lab var HS2f "HS2:Kurse angeboten:Regeln guter wissenschaftlicher Praxis"
+*	HS2g Kurse angeboten: Wissenschaftskommunikation
+cap drop HS2g
+gen HS2g = adcd08g
+lab var HS2g "HS2:Kurse angeboten:Wissenschaftskommunikation"
+*	HS2h Kurse angeboten: Management von Forschungs-/Drittmittelprojekten
+cap drop HS2h
+gen HS2h = adcd08h
+lab var HS2h "HS2:Kurse angeboten:Management von Forschungs-/Drittmittelprojekten"
+*	HS2i Kurse angeboten: Moderationstechniken u. Gremienleitung
+cap drop HS2i
+gen HS2i = adcd08i
+lab var HS2i "HS2:Kurse angeboten:Moderationstechniken u. Gremienleitung"
+*	HS2j Kurse angeboten: Präsentation von Forschungsergebnissen
+cap drop HS2j
+gen HS2j = adcd08j
+lab var HS2j "HS2:Kurse angeboten:Präsentation von Forschungsergebnissen"
+*	HS2k Kurse angeboten: spezielle Forschungsmethoden für das Promotionsfach
+cap drop HS2k
+gen HS2k = adcd08k
+lab var HS2k "HS2:Kurse angeboten:Spezielle Forschungsmethoden für das Promotionsfach"
+*	HS2l Kurse angeboten: wissenschaftliches Schreiben (Schreibwerkstätten etc.)
+cap drop HS2l
+gen HS2l = adcd08l
+lab var HS2l "HS2:Kurse angeboten:Wissenschaftliches Schreiben (Schreibwerkstätten etc.)"
+*	HS2m Kurse angeboten: Entwicklung und Beantragung Forschungsprojekte
+cap drop HS2m
+gen HS2m = adcd08m
+lab var HS2m "HS2:Kurse angeboten:Entwicklung und Beantragung von Forschungsprojekten"
+*	HS2n Kurse angeboten: sonstiges
+cap drop HS2n
+gen HS2n = adcd08n
+lab var HS2n "HS2:Kurse angeboten:Sonstiges"
+*	HS2p Kurse angeboten: keine der genannten Kurse/Lehrveranstaltungen bekannt
+cap drop HS2p
+gen HS2p = adcd08p
+lab var HS2p "HS2:Kurse angeboten:Keine der genannten Kurse/Lehrveranstaltungen bekannt"
+*	HS2q Kurse angeboten: Karrierewege außerhalb der Wissenschaft
+tab dataset adcd08q, mis
+cap drop HS2q
+gen HS2q = .
+	replace HS2q = . if dataset == 0 // Item neu in Prom2020.1 
+	replace HS2q = adcd08q if dataset >= 1
+lab var HS2q "HS2:Kurse angeboten:Karrierewege außerhalb der Wissenschaft"
+
+lab def HS2_lb 0 "Nein" 1 "Ja", replace
+	foreach var of varlist HS2* {
+				lab val `var' HS2_lb 
+				}
+
+		foreach var of varlist HS2* {
+					tab `var' dataset, mis 
+					}
+
+****************HS3 Teilnahme an Kursen nach Art
+		foreach var of varlist adcd09* {
+				tab `var' dataset, mis 
+				}
+*	HS3a Kursteilnahme: Konferenz- und Tagungsorganisation
+cap drop HS3a
+gen HS3a = adcd09a
+lab var HS3a "HS3:Kursteilnahme:Konferenz- und Tagungsorganisation"
+*	HS2b Kursteilnahme: Personal- und Mitarbeiterführung
+cap drop HS3b
+gen HS3b = adcd09b
+lab var HS3b "HS3:Kursteilnahme:Personal- und Mitarbeiterführung"
+*	HS3c Kursteilnahme: spezielle Themen des Promotionsfachs
+cap drop HS3c
+gen HS3c = adcd09c
+lab var HS3c "HS3:Kursteilnahme:Spezielle Themen des Promotionsfachs"
+*	HS3d Kursteilnahme: Karriereplanung
+cap drop HS3d
+gen HS3d = adcd09d
+lab var HS3d "HS3:Kursteilnahme:Karriereplanung"
+*	HS3e Kursteilnahme: Verfassen englischer Texte
+cap drop HS3e
+gen HS3e = adcd09e
+lab var HS3e "HS3:Kursteilnahme:Verfassen englischer Texte"
+*	HS3f Kursteilnahme: Regeln guter wissenschaftlicher Praxis
+cap drop HS3f
+gen HS3f = adcd09f
+lab var HS3f "HS3:Kursteilnahme:Regeln guter wissenschaftlicher Praxis"
+*	HS3g Kursteilnahme: Wissenschaftskommunikation
+cap drop HS3g
+gen HS3g = adcd09g
+lab var HS3g "HS3:Kursteilnahme:Wissenschaftskommunikation"
+*	HS3h Kursteilnahme: Management von Forschungs-/Drittmittelprojekten
+cap drop HS3h
+gen HS3h = adcd09h
+lab var HS3h "HS3:Kursteilnahme:Management von Forschungs-/Drittmittelprojekten"
+*	HS3i Kursteilnahme: Moderationstechniken u. Gremienleitung
+cap drop HS3i
+gen HS3i = adcd09i
+lab var HS3i "HS3:Kursteilnahme:Moderationstechniken u. Gremienleitung"
+*	HS3j Kursteilnahme: Präsentation von Forschungsergebnissen
+cap drop HS3j
+gen HS3j = adcd09j
+lab var HS3j "HS3:Kursteilnahme:Präsentation von Forschungsergebnissen"
+*	HS3k Kursteilnahme: spezielle Forschungsmethoden für das Promotionsfach
+cap drop HS3k
+gen HS3k = adcd09k
+lab var HS3k "HS3:Kursteilnahme:Spezielle Forschungsmethoden für das Promotionsfach"
+*	HS3l Kursteilnahme: wissenschaftliches Schreiben (Schreibwerkstätten etc.)
+cap drop HS3l
+gen HS3l = adcd09l
+lab var HS3l "HS3:Kursteilnahme:Wissenschaftliches Schreiben (Schreibwerkstätten etc.)"
+*	HS3m Kursteilnahme: Entwicklung und Beantragung von Forschungsprojekten
+cap drop HS3m
+gen HS3m = adcd09m
+lab var HS3m "HS3:Kursteilnahme:Entwicklung und Beantragung von Forschungsprojekten"
+*	HS3n Kursteilnahme: sonstiges
+cap drop HS3n
+gen HS3n = adcd09n
+lab var HS3n "HS3:Kursteilnahme:Sonstiges"
+*	HS3p Kursteilnahme: Karrierewege außerhalb der Wissenschaft
+cap drop HS3p
+gen HS3p = .
+	replace HS3p = . if dataset == 0 		// 2018
+	replace HS3p = adcd09p if dataset >= 1	// 2020 + 2022
+lab var HS3p "HS3:Kursteilnahme:Karrierewege außerhalb der Wissenschaft"
+
+lab def HS3_lb 0 "Nein" 1 "Ja", replace
+
+		foreach var of varlist HS3* {
+				lab val `var' HS3_lb 
+				}
+
+		foreach var of varlist HS3* {
+				tab `var' dataset, mis 
+				}
+	
+****************HS4 Teilnahmeintensität an Kursen
+	bysort dataset: sum adcd10 		// 2018
+	bysort dataset: sum adcd10b 	// 2020 + 2022
+cap drop HS4
+gen HS4=.
+	replace HS4 = adcd10 if dataset == 0	// 2018
+	replace HS4 = adcd10b if dataset >=1 	// 2020 + 2022
+	replace HS4 = . if HS4 == 0 // keine Kursteilnahme ausschließen
+lab var HS4 "HS4:Anzahl teilgenommener Kurse/LV in den letzten 12 Monaten"
+	tab HS4 dataset
+	tabstat HS4, stat(mean p50 sd) by(dataset)
+	
+****************HS5 Verpflichtung der Kursteilnahme
+	tab adcd11 dataset 		// 2018 + 2022
+	tab adcd11_g1 dataset	// 2020
+	tab adcd31 dataset
+	tab adcd31 dataset, nol
+cap drop HS5b
+gen HS5b=.
+	replace HS5b = adcd11 if adcd11!=0 & dataset==0 
+	replace HS5b = adcd11_g1 if (adcd11_g1!=0 | adcd31!=1) & dataset==1
+	replace HS5b = adcd11 if (adcd11 !=0 | adcd31!=1) & dataset==2
+	replace HS5b = . if HS5b == 0 // keine Kursteilnahme ausschließen
+lab var HS5b "HS5:Anzahl der verpflichtenden Kurse/LV in den letzten 12 Monaten"
+	tab HS5b dataset
+	tabstat HS5b, stat(mean p50 sd) by(dataset)
+	
+****************HS6 Zufriedenheit mit Kursen
+	tab adcd12 dataset 	// 2018, 10er Skala
+	tab adsv20b dataset // 2020 + 2022, 5er-Skala
+cap drop HS6
+gen HS6 = . 
+	replace HS6 = adcd12 if dataset == 0 // 
+recode HS6 (0/1 = 1) (2/3 = 2) (4/6 = 3) (7/8 = 4) (9/10 = 5)
+	replace HS6 = adsv20b if dataset >= 1
+lab var HS6 "HS6:Zufriedenheit mit dem Kursangebot"
+lab def HS6_lb 	1 "Überhaupt nicht zufrieden (1)" 2 "2" 3 "3" 4 "4" ///
+				5 "Völlig zufrieden (5)", replace
+lab val HS6 HS6_lb
+	tab HS6 dataset,  col
+
+****************HS7 Regeln guter wissenschaftlicher Praxis I (Kenntnis)
+	tab adcd18 dataset
+	tab adcd18 dataset, nol
+cap drop HS7
+gen HS7 = adcd18
+recode HS7 (2=0)
+lab var HS7 "HS7:Regeln guter wissenschaftlicher Praxis I (Kenntnis)"
+lab def HS7_lb 0 "Nein" 1 "Ja", replace
+lab val HS7 HS7_lb
+	tab HS7 dataset
+
+****************HS8 Regeln guter wissenschaftlicher Praxis II (HS-Unterstützung verfügbar)
+	tab adcd19 dataset
+	tab adcd19 dataset, nol
+cap drop HS8
+gen HS8 = adcd19
+recode HS8 (2=0)
+lab var HS8 "HS8:Regeln guter wissenschaftlicher Praxis II (HS-Unterstützung verfügbar)"
+lab def HS8_lb 0 "Nein" 1 "Ja", replace
+lab val HS8 HS8_lb
+	tab HS8 dataset
+
+****************HS9 Regeln guter wissenschaftlicher Praxis III (HS-Unterstützung zufrieden)
+	tab adcd20 dataset //nur in 2018
+cap drop HS9
+gen HS9 = adcd20
+	replace HS9 = . if dataset >= 1
+lab var HS9 "HS9:Regeln guter wissenschaftlicher Praxis III (HS-Unterstützung zufrieden)"
+lab def HS9_lb 1 "Gar nicht zufrieden" 2 "2" 3 "3" 4 "4" 5 "Sehr zufrieden", replace
+lab val HS9 HS9_lb
+	tab HS9 dataset, mis
+
+****************HS10 Promotion an Hochschule des Erwerbs der Promotionsberechtigung
+	tab aedb04b_g1 dataset
+	tab adbi10a_g1 dataset
+cap drop HS10
+gen HS10=.
+	replace HS10=0 if aedb04b_g1 != adbi10a_g1  
+	replace HS10=0 if aedb04b_g1 == 9990 // Studium im Ausland = mobil
+	replace HS10=1 if aedb04b_g1 == adbi10a_g1 
+	replace HS10=. if missing(aedb04b_g1) | missing(adbi10a_g1) 
+lab var HS10 "HS10:Promotion an der Hochschule des Erwerbs der Promotionsberechtigung"
+lab def HS10_lb 0 "Nein" 1 "Ja", replace
+lab val HS10 HS10_lb 
+	tab HS10 dataset
+	tab HS10 F5
+
+****************HS11 Beschäftigung an der Hochschule der Promotion
+	tab aemp01a dataset, mis 	// 2018
+	tab aemp112a dataset, mis	// 2020
+	tab aemp197 dataset, mis nol 	// 2022
+cap drop HS11
+gen HS11 = .
+	replace HS11 = aemp01a if dataset==0 	// Prom2018.1
+	replace HS11 = aemp112a if dataset==1 	// Prom2020.1
+	replace HS11 = aemp197 if dataset==2 	// Prom2022.1
+recode HS11 (2/3=0)
+lab var HS11 "HS11:Beschäftigung an der Hochschule der Promotion"
+lab def HS11_lb 0 "Nein" 1 "Ja", replace
+lab val HS11 HS11_lb
+tab HS11 dataset, col
+
+
+********************************************************************************
+**********************Löschen nicht benötigter Variablen************************
+drop aid /*
+*/zulassung uefachlich ueemotional uenetzwerk uekarriere uegesamt /*
+*/struktstab struktintens struktgesamt C2a /*
+*/afin18sum afin20sum afin22sum /*
+*/apreload01 apreloadpreload01 /*Hochschule, 2020=apreloadpreload01
+*/adbi01 adbi17 /*Status der Promovierenden, 2020/23=adbi17
+*/adbi10a_g1 /*Hochschule der Promotion nach Destatis Hochschulschlüssel
+*/adbi04a adbi04b adbi04c /*Für Zulassung / Kohorten bei Sampleeingrenzung
+****************Differenzierungsvariablen
+*Diff0 (Undifferenziert für öff. Bereich), id siehe Zuordnungsvariablen
+*Diff1 (Geschlecht) 
+*/adem01 adem11 /*
+*Diff2 (Destatis Fächerzuordnung)
+*/adbi15_g2 /*
+*Diff3 (Migrationshintergrund - Geburtsland/1.Generation) 
+*/adem03 /*
+*Diff4 (Strukturiertes Doktorandenprogramm) + C2 
+*/ adcd06a adcd04 adcd53 /*
+*Diff5 (Elterliche Bildungsherkunft)
+*/apar10a apar10b /*
+*Diff6 (Elternschaft) / G4
+*/alcd06 /*
+*Diff7 (Kohorte)
+nutzt dataset, siehe oben Systemvariable
+*Diff8 (Beschäftigung Promovierender)
+*/aemp01a aemp112a aemp197 /* 2020=aemp112a *2022=aemp197
+****************A0 - Soziodemografie-Master
+*/adem02 adem02_g1 /* Alter, *2020=adem02_g1
+*/apar01a apar01b /* Geburtsland Eltern Deutschland
+****************Arbeits- und Beschäftigungsbedingungen
+*A1
+*/adcd04 adcd07a adcd07b /*
+*A2 Befristung
+*/aemp04 aemp20 aemp110 afin11a aemp36 /*
+*A3 Stellenumfang, überarbeitet in 2023
+*/aemp09 aemp10 aemp11 /*2018
+*/aemp75_g1 aemp106_g1 aemp76_g1 aemp77_g1 aemp106_g1 /*2020 
+*/aemp75 aemp106 aemp76 aemp77 aemp106 /*2022 
+*/aemp78 /*2020/2022
+*A4 Zeit für die Promotion
+*/adcd22 adcd22_g1 /*
+*A5 Vertragslaufzeit, neu in 2023
+*/aemp06 aemp63_g1 aemp63 /*
+****************Betreuungssituation
+*B1 Betreuungsvereinbarung
+*/adsv02 /*2018*/ adsv19 /*2020/2022
+*B2 Inhalte der Betreuungsvereinbarung
+*/adsv03a adsv03b adsv03c adsv03d adsv03e adsv03f adsv03g adsv03h /// 
+adsv03i adsv03j adsv03k adsv03l /*
+*B3 Anzahl der Betreuer*innen
+*/ adsv04 adsv04_g1 adsv18 /*
+*B4 Austauschhäufigkeit mit der Hauptbetreuungsperson
+*/adsv10 /* 
+*B5 Zufriedenheit mit der Betreuung
+*/adsv12a adsv12b adsv12c adsv20a adsv20b adsv20c /*
+*B6 Ünterstütung 
+*/adcd17a adcd17b adcd17c adcd17d adcd17e adcd17f adcd17g adcd17h adcd17i ///
+adcd17j adcd17k adcd17l ///
+adcd33a adcd33b adcd33c adcd33d adcd33e adcd33f adcd33g adcd33h adcd33i ///
+adcd33j adcd33k adcd33l /* 2020
+*B7 Strukturierung: Betreuungsstabilität und -intensität
+*/adsv01a adsv01b adsv01c adsv01d adsv01e adsv01f /*
+****************Art und Struktur der Promotion
+*C1 Kumulative Dissertation
+*/adcd16a adcd35a /*
+*C2 Mitgliedschaft Doktorandenprogramm, bei Diff4 oben
+*C3 Finanzierung im Rahmen des strukturierten Doktorandenprogramms
+*/adcd07a adcd07b adcd07c /*
+*C4 Externe Kooperation
+*/adcd13a adcd13b adcd13c adcd13e adcd32a adcd32b adcd32c adcd32f adcd32e /*
+*C5 Externe Kooperation mit: Fachhochschule/HAW
+*/adbi13 adbi18 /*
+*C6 Externe Kooperation mit: Hochschule im Ausland
+*/adbi11 /*
+****************Promotionsmotive und Karriereintentionen
+*D1 Motivation zur Arbeit an der Promotion
+*/adtc05a adtc05b adtc05c adtc05d adtc05e adtc05f adtc05g adtc05h ///
+ adtc05i adtc05j adtc05k /*
+*D2 Erwägung des Promotionsabbruchs
+*/adid04 /*
+*D3 Gründe zur Erwägung des Promotionsabbruchs
+*/adid05a adid05b adid05c adid05d adid05e adid05f adid05g adid05h ///
+adid05i adid05j adid05k /* 
+****************Karrierewege und Perspektiven nach der Promotion
+*E1 Sektorpräferenz
+*/acrg07a /*2018
+*/aemp109 acrg19a /*2020
+*E2 Karriereintention Professur
+*/acrg08 acrg06 acrg04 /*
+*E3 Antizipierte Schwierigkeiten bei Stellensuche nach Promotion im eigenen Fach
+*/acrg11a acrg17a acrg11b acrg17b /*
+*E4 Persönlich antizipierte Schwierigkeiten bei Stellensuche nach Promotion
+*/acrg12a acrg18a acrg12b acrg18b /*
+****************Mobilität
+*F1 Internationale Mobilität
+*/aabr01 aabr08 /*
+*F2 Gastländer
+*/aabr03_g1 aabr03_g2 aabr03_g3 aabr03_g4 aabr03_g5 aabr03_g6 aabr03_g7 ///
+aabr03_g8 aabr03_g9 aabr03_g10 aabr03_g11 aabr03_g12 aabr03_g13 aabr03_g14 ///
+aabr07ab_g1 aabr07bb_g1 aabr07cb_g1 aabr07db_g1 /*
+*F3 Hinderungsründe Ausland 
+*/aabr05a aabr05b aabr05c aabr05d aabr05e aabr05f aabr05g aabr05h /*
+*/aabr05i aabr05j /*
+*F4 Mobilität nach der Promotion
+*/aabr06a aabr06b aabr06c aabr06d aabr06e aabr06f aabr06g aabr06h /*
+*F5 Mobilität beim Übergang in die Promotion
+*/aedb04b_g1 adbi10a_g1 /*
+****************Private Lebenssituation / Persönlicher Hintergrund
+*G1 Finanzierung der Promotion
+*/afin01a afin01b afin01c afin01d afin01e afin01f afin01g afin01h afin01i /*2018
+*/afin01j afin01k afin01l /*2018
+*/afin11a afin11b afin11c afin11d afin11e afin11f afin11g afin11h afin11i /*2020
+*/afin11j /*2020
+*G2 G2 Finanzierung der Promotion (Betrag) 
+*/afin04a afin04b afin04c afin04d afin04e afin04f afin04g afin04h afin04i /*2018 
+*/afin04j afin04k afin01a afin01b /*2018
+*/afin12a_g1 afin12b_g1 afin12c_g1 afin12d_g1 afin12e_g1 afin12f_g1 /*2020
+*/afin12g_g1 afin12h_g1 afin12i_g1 afin11a afin11b afin12a /*2020
+*/afin12l_g1 afin12k_g1 afin12b_g1 afin12c_g1 afin12d_g1 afin12e_g1 afin12f_g1 /*2022
+*/afin12g_g1 afin12h_g1 afin12i_g1 afin12j_g1 /*2022
+*G3 Suffizienz und Sicherheit der Finanzierung
+*/afin05a afin05b /*
+*G4 Elternschaft, bei Diff6 oben
+*G5 Zufriedenheit und Vereinbarkeit
+*/apsy01 alcd12 /*
+*G6 Gesundheit
+*/ahea01 /*insg
+*/aict03 ahea02 ahea03 ahea04 /*2018
+*/ahea02_g ahea03_g ahea04_g /*2020
+****************Hochschulbezogene Indikatoren
+*HS1 Grund der Hochschulwahl
+*/adtc02a adtc02b adtc02c adtc02d adtc02e adtc02f adtc02g /*2018
+*/adtc13a adtc13b adtc13c adtc13d adtc13e adtc13f adtc13g adtc13h adtc13i /*20
+*HS2 Sichtbarkeit der Kurse
+*/adcd08a adcd08b adcd08c adcd08d adcd08e adcd08f adcd08g adcd08h adcd08i ///
+adcd08j adcd08k adcd08l adcd08m adcd08n adcd08p adcd08q /*
+*HS3 Teilnahme an Kursen nach Art 
+*/adcd09a adcd09b adcd09c adcd09d adcd09e adcd09f adcd09g adcd09h /*
+*/adcd09i adcd09j adcd09k adcd09l adcd09m adcd09n adcd09p /*
+*HS4 Teilnahmeintensität an Kursen
+*/adcd10 /*2018
+*/adcd10a adcd10b /*2020 
+*HS5 Verpflichtung der Kursteilnahme
+*/adcd11 adcd11_g1 adcd31 /*
+*HS6 Zufriedenheit mit Kursen
+*/adcd12 adsv20b /*
+*HS7 Regeln guter wissenschaftlicher Praxis I (Kenntnis)
+*/adcd18 /*
+*HS8 Regeln guter wissenschaftlicher Praxis II (HS-Unterstützung verfügbar)
+*/adcd19 /*
+*HS9 Regeln guter wissenschaftlicher Praxis III (HS-Unterstützung zufrieden)
+*/adcd20 /*
+*HS10 Promotion an Hochschule des Erwerbs der Promotionsberechtigung
+*/aedb04b_g1 adbi10a_g1 /*
+*HS11 Beschäftigung an der Hochschule der Promotion
+*/aemp01a aemp112a
+
+		foreach var of varlist Diff0-A1 {
+				tab `var' dataset, mis 
+				}
+		foreach var of varlist G2-HS11 {
+				tab `var' dataset, mis 
+				}
+				
+********************************************************************************
+****************Sichern des reduzierten Stata-Datensatzes (geschützt)***********
+cd "P:\Nacaps**********************"
+dir
+save "P:\Nacaps**********************.dta", replace
+
+cd "P:\Nacaps**********************\Export_v5-1\"
+
+*Export der Label
+export excel using v5-1DP_2018_2020_2022_label.xlsx, firstrow(varlabels) replace
+*export delimited using testv1DP_2018_2020_2022__label_v1.csv, replace*/
+
+*Export der Values
+label drop _all
+export excel using v5-1DP_2018_2020_2022_values.xlsx, firstrow(varlabels) replace
+*export delimited using testv1DP_2018_2020_2022_values_v1.csv, replace
+
+******************************ENDE & LOGOUT*************************************
+capture log, close
