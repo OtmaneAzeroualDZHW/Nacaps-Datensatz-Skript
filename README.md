@@ -1,4 +1,4 @@
-Stata-Code für die Aufbereitung der Mikrodaten der National Academics Panel Study (Nacaps) für den Indikatorendatensatz des Partnerbereich des [Nacaps-Datenportals] ((https://nacaps-datenportal.de/partnerbereich.html)).
+Stata-Code für die Aufbereitung der Mikrodaten der National Academics Panel Study (Nacaps) für den Indikatorendatensatz des Partnerbereich des [Nacaps-Datenportals] https://nacaps-datenportal.de/partnerbereich.html.
 
 - Falls Sie zusätzlich zum Datenportal den Mikrodatensatz nutzen und die im Datenportal verwendeten Variablen ebenfalls rekodieren möchten, kann dieser Code Sie unterstützen
 - Das Skript ist für das Analyseprogramm Stata geschrieben. Das do-file steht als txt-Datei zur Verfügung, die auch mit dem Text-Editor gelesen werden kann
